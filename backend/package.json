@@ -1,0 +1,22 @@
+{
+  "name": "uniswap-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "UniSwap REST API (Node.js + Express + PostgreSQL)",
+  "scripts": {
+    "start": "node --env-file=.env src/server.js",
+    "dev": "node --watch --env-file=.env src/server.js",
+    "db:setup": "node --env-file=.env scripts/db-setup.js",
+    "db:seed": "node --env-file=.env scripts/db-seed.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20.6"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.16.3"
+  }
+}

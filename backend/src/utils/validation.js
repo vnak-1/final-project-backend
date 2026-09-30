@@ -1,0 +1,84 @@
+// Input validation. Pure functions with no database access, so they are easy to unit test.
+// The allowed values mirror frontend/src/types/index.ts and the CHECK constraints in schema.sql.
+
+export const CATEGORIES = ["textbooks", "electronics", "furniture", "clothing", "bikes", "other"];
+export const CONDITIONS = ["new", "like_new", "good", "fair"];
+export const LISTING_TYPES = ["sale", "buy_request", "trade", "giveaway"];
+export const STATUSES = ["active", "reserved", "sold", "traded"];
+
+const CAMPUS_EMAIL = /^[^\s@]+@([a-z0-9-]+\.)+edu\.kh$/i;
+
+/** Only campus addresses ending in .edu.kh may register (proposal, Functional Requirements). */
+export function isCampusEmail(email) {
+  return typeof email === "string" && CAMPUS_EMAIL.test(email.trim());
+}
+
+export function validateRegistration({ name, email, password }) {
+  const errors = {};
+  if (typeof name !== "string" || !name.trim()) errors.name = "Name is required.";
+  if (!isCampusEmail(email)) errors.email = "Use your campus email (ending in .edu.kh).";
+  if (typeof password !== "string" || password.length < 8) {
+    errors.password = "Password must be at least 8 characters.";
+  }
+  return errors;
+}
+
+function isMoney(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+/**
+ * Checks a listing body. With `partial: true` (PATCH) only the fields present are checked.
+ * Returns an object of field -> message; empty means valid.
+ */
+export function validateListing(body, { partial = false } = {}) {
+  const errors = {};
+  const has = (field) => body[field] !== undefined;
+  const check = (field, ok, message) => {
+    if ((has(field) || !partial) && !ok) errors[field] = message;
+  };
+
+  check("title", typeof body.title === "string" && body.title.trim().length > 0
+    && body.title.length <= 120, "Title is required (max 120 characters).");
+  check("category", CATEGORIES.includes(body.category), `Category must be one of: ${CATEGORIES.join(", ")}.`);
+  check("condition", CONDITIONS.includes(body.condition), `Condition must be one of: ${CONDITIONS.join(", ")}.`);
+
+  if (has("description") && typeof body.description !== "string") {
+    errors.description = "Description must be text.";
+  }
+  if (has("listingType") && !LISTING_TYPES.includes(body.listingType)) {
+    errors.listingType = `Listing type must be one of: ${LISTING_TYPES.join(", ")}.`;
+  }
+  if (has("price") && !isMoney(body.price)) errors.price = "Price must be a number >= 0.";
+  if (has("cashTopup") && body.cashTopup !== null && !isMoney(body.cashTopup)) {
+    errors.cashTopup = "Cash top-up must be a number >= 0.";
+  }
+  if (has("imageUrls") && !(Array.isArray(body.imageUrls)
+    && body.imageUrls.every((url) => typeof url === "string"))) {
+    errors.imageUrls = "Image URLs must be a list of strings.";
+  }
+  if (has("status") && !STATUSES.includes(body.status)) {
+    errors.status = `Status must be one of: ${STATUSES.join(", ")}.`;
+  }
+  return errors;
+}
+
+function toNumber(value) {
+  if (value === undefined || value === "") return undefined;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : undefined;
+}
+
+/** Turns browse query-string params into a clean filter object. Unknown values are ignored. */
+export function parseListingFilters(query) {
+  const pick = (value, allowed) => (allowed.includes(value) ? value : undefined);
+  return {
+    query: typeof query.query === "string" && query.query.trim() ? query.query.trim() : undefined,
+    category: pick(query.category, CATEGORIES),
+    condition: pick(query.condition, CONDITIONS),
+    listingType: pick(query.type, LISTING_TYPES),
+    status: pick(query.status, STATUSES) ?? "active",
+    minPrice: toNumber(query.minPrice),
+    maxPrice: toNumber(query.maxPrice),
+  };
+}
