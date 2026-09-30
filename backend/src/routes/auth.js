@@ -29,29 +29,51 @@ async function deliverVerificationLink(user) {
   }
 }
 
-// POST /api/auth/register  { name, email, password }
+// Looks up an account by email and password. Same error for "no such user" and "wrong password",
+// so attackers cannot probe for which emails have accounts.
+async function findUserByCredentials(body) {
+  const email = String(body.email ?? "").trim().toLowerCase();
+  const { rows } = await query("SELECT * FROM users WHERE email = $1", [email]);
+  const user = rows[0];
+  if (!user || !(await verifyPassword(String(body.password ?? ""), user.password_hash))) {
+    throw new HttpError(401, "Email or password is incorrect.");
+  }
+  return user;
+}
+
+// POST /api/auth/register  { name, email, password, major?, graduationYear? }
+// Creates a locked account: nobody is signed in until the emailed link proves they own the address.
 authRouter.post("/register", async (req, res) => {
   const errors = validateRegistration(req.body);
   if (Object.keys(errors).length) throw new HttpError(400, "Please fix the highlighted fields.", errors);
 
-  const email = req.body.email.trim().toLowerCase();
-  const existing = await query("SELECT 1 FROM users WHERE email = $1", [email]);
-  if (existing.rowCount) throw new HttpError(409, "An account with this email already exists.");
-
-  const verificationToken = randomBytes(32).toString("hex");
+  const b = req.body;
+  // If someone registered this email but never verified it (a typo, or a stranger using your
+  // address), the new sign-up replaces that account. A verified account is never touched:
+  // the WHERE makes the upsert return no row, which we report as "already exists".
   const { rows } = await query(
-    `INSERT INTO users (name, email, password_hash, verification_token)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [req.body.name.trim(), email, await hashPassword(req.body.password), verificationToken],
+    `INSERT INTO users (name, email, password_hash, major, graduation_year, verification_token)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (email) DO UPDATE SET
+       name = EXCLUDED.name,
+       password_hash = EXCLUDED.password_hash,
+       major = EXCLUDED.major,
+       graduation_year = EXCLUDED.graduation_year,
+       verification_token = EXCLUDED.verification_token
+     WHERE NOT users.is_verified
+     RETURNING *`,
+    [b.name.trim(), b.email.trim().toLowerCase(), await hashPassword(b.password),
+      b.major ?? "", b.graduationYear ?? null, randomBytes(32).toString("hex")],
   );
+  if (!rows[0]) throw new HttpError(409, "An account with this email already exists.");
 
   // Not awaited: sending can take a few seconds, and registration should not fail because of email.
   void deliverVerificationLink(rows[0]);
 
-  res.status(201).json({ user: toUser(rows[0], { includeEmail: true }), token: signToken(rows[0].id) });
+  res.status(201).json({ email: rows[0].email, verificationRequired: true });
 });
 
-// POST /api/auth/verify-email  { token }  -> gives the account its verified badge
+// POST /api/auth/verify-email  { token }  -> unlocks the account so its owner can sign in
 authRouter.post("/verify-email", async (req, res) => {
   const { rows } = await query(
     `UPDATE users SET is_verified = true, verification_token = NULL
@@ -62,12 +84,14 @@ authRouter.post("/verify-email", async (req, res) => {
   res.json({ user: toUser(rows[0], { includeEmail: true }) });
 });
 
-// POST /api/auth/resend-verification  (logged in) -> emails a fresh link; the old one stops working
-authRouter.post("/resend-verification", requireAuth, async (req, res) => {
+// POST /api/auth/resend-verification  { email, password } -> emails a fresh link; the old one stops working
+// Asks for the password too, so a stranger cannot use this to flood someone's inbox.
+authRouter.post("/resend-verification", async (req, res) => {
+  const user = await findUserByCredentials(req.body);
   const { rows } = await query(
     `UPDATE users SET verification_token = $2
      WHERE id = $1 AND NOT is_verified RETURNING *`,
-    [req.userId, randomBytes(32).toString("hex")],
+    [user.id, randomBytes(32).toString("hex")],
   );
   if (!rows[0]) throw new HttpError(400, "This account is already verified.");
   if (!(await deliverVerificationLink(rows[0]))) {
@@ -78,12 +102,10 @@ authRouter.post("/resend-verification", requireAuth, async (req, res) => {
 
 // POST /api/auth/login  { email, password }
 authRouter.post("/login", async (req, res) => {
-  const email = String(req.body.email ?? "").trim().toLowerCase();
-  const { rows } = await query("SELECT * FROM users WHERE email = $1", [email]);
-  const user = rows[0];
-  // Same message for "no such user" and "wrong password", so attackers cannot probe for accounts.
-  if (!user || !(await verifyPassword(String(req.body.password ?? ""), user.password_hash))) {
-    throw new HttpError(401, "Email or password is incorrect.");
+  const user = await findUserByCredentials(req.body);
+  // Checked after the password, so only the person who registered learns the account is unverified.
+  if (!user.is_verified) {
+    throw new HttpError(403, "Verify your email before signing in. We sent you a link when you registered.");
   }
   res.json({ user: toUser(user, { includeEmail: true }), token: signToken(user.id) });
 });

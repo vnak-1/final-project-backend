@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Field, FieldInput } from "@/components/forms/Field";
+import { ResendVerificationButton } from "@/components/forms/ResendVerificationButton";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Sign-in form. The email and password go to a Server Action, which checks them against the
- * API and stores the session in an httpOnly cookie. The password is never kept in state after
- * submitting and never stored in the browser.
+ * API and stores the session in an httpOnly cookie. The password is never stored in the browser.
+ * Accounts that have not verified their email are refused, with a button to resend the link.
  */
 export function LoginForm() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -26,10 +28,13 @@ export function LoginForm() {
       return;
     }
     setError(null);
-    const message = await signIn(email.trim(), password);
-    if (message) {
-      setError(message);
-      setPassword("");
+    setNeedsVerification(false);
+    const result = await signIn(email.trim(), password);
+    if (result.error) {
+      setError(result.error);
+      // Right password, unverified email: keep the fields so "Resend" can use them.
+      if (result.needsVerification) setNeedsVerification(true);
+      else setPassword("");
       return;
     }
     router.push("/");
@@ -57,6 +62,10 @@ export function LoginForm() {
           onChange={(event) => setPassword(event.target.value)}
         />
       </Field>
+
+      {needsVerification ? (
+        <ResendVerificationButton email={email.trim()} password={password} />
+      ) : null}
 
       {/* Light fill with black text: the old #1B3022 fill only reached 1.5:1. */}
       <Button

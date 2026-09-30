@@ -37,7 +37,11 @@ function toActionError(error: unknown): ActionResult {
   return { error: "Something went wrong. Please try again." };
 }
 
-export async function signIn(email: string, password: string): Promise<ActionResult & { user?: User }> {
+/** `needsVerification` is set when the password was right but the email is not verified yet. */
+export async function signIn(
+  email: string,
+  password: string,
+): Promise<ActionResult & { user?: User; needsVerification?: boolean }> {
   try {
     const { user, token } = await apiFetch<{ user: User; token: string }>("/api/auth/login", {
       method: "POST",
@@ -46,7 +50,8 @@ export async function signIn(email: string, password: string): Promise<ActionRes
     await saveSession(token);
     return { user };
   } catch (error) {
-    return toActionError(error);
+    const needsVerification = error instanceof ApiError && error.status === 403;
+    return { ...toActionError(error), needsVerification };
   }
 }
 
@@ -56,20 +61,11 @@ export async function register(values: {
   password: string;
   major: string;
   graduationYear: number;
-}): Promise<ActionResult & { user?: User }> {
+}): Promise<ActionResult> {
   try {
-    const { token } = await apiFetch<{ token: string }>("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ name: values.name, email: values.email, password: values.password }),
-    });
-    await saveSession(token);
-    // Registration only takes name, email and password; major and year are profile fields.
-    const { user } = await apiFetch<{ user: User }>("/api/users/me", {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ major: values.major, graduationYear: values.graduationYear }),
-    });
-    return { user };
+    // No session is created here: the account stays locked until its email link is opened.
+    await apiFetch("/api/auth/register", { method: "POST", body: JSON.stringify(values) });
+    return {};
   } catch (error) {
     return toActionError(error);
   }
@@ -79,10 +75,13 @@ export async function signOut(): Promise<void> {
   (await cookies()).delete(TOKEN_COOKIE);
 }
 
-/** Emails the signed-in user a fresh verification link. */
-export async function resendVerification(): Promise<ActionResult> {
+/** Emails a fresh verification link. The password proves the request comes from whoever registered. */
+export async function resendVerification(email: string, password: string): Promise<ActionResult> {
   try {
-    await apiFetch("/api/auth/resend-verification", { method: "POST" });
+    await apiFetch("/api/auth/resend-verification", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
     return {};
   } catch (error) {
     return toActionError(error);

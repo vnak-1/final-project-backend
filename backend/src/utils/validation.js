@@ -13,12 +13,17 @@ export function isCampusEmail(email) {
   return typeof email === "string" && CAMPUS_EMAIL.test(email.trim());
 }
 
-export function validateRegistration({ name, email, password }) {
+export function validateRegistration({ name, email, password, major, graduationYear }) {
   const errors = {};
   if (typeof name !== "string" || !name.trim()) errors.name = "Name is required.";
   if (!isCampusEmail(email)) errors.email = "Use your campus email (ending in .edu.kh).";
   if (typeof password !== "string" || password.length < 8) {
     errors.password = "Password must be at least 8 characters.";
+  }
+  // Optional profile fields.
+  if (major !== undefined && typeof major !== "string") errors.major = "Major must be text.";
+  if (graduationYear !== undefined && graduationYear !== null && !Number.isInteger(graduationYear)) {
+    errors.graduationYear = "Graduation year must be a whole number.";
   }
   return errors;
 }

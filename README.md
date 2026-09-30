@@ -24,5 +24,6 @@ The web app calls the API from the Next.js server, at `http://localhost:4000` by
 different address, set `API_URL` in `frontend/.env.local`.
 
 Demo accounts (created by `npm run db:seed`, password `password123` for all):
-`sokunth@aupp.edu.kh`, `chanrithorn@aupp.edu.kh`, `dara@aupp.edu.kh`. New accounts need a
-`.edu.kh` email; their verification link is printed in the API's log until email sending is set up.
+`sokunth@aupp.edu.kh`, `chanrithorn@aupp.edu.kh`, and `dara@aupp.edu.kh` (unverified on purpose, to
+show that sign-in is refused). New accounts need a `.edu.kh` email and cannot sign in until its
+verification link is opened; the link is printed in the API's log until email sending is set up.

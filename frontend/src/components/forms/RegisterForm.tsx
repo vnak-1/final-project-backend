@@ -12,16 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/contexts/AuthContext";
 import { register } from "@/lib/api/actions";
 
 /**
- * Registration form. Creates the account through the API, which signs the new user in
- * and logs an email-verification link, then shows the "check your email" step.
+ * Registration form. Creates the account through the API, which emails a verification link,
+ * then shows the "check your email" step. Nobody is signed in until that link is opened.
  */
 export function RegisterForm() {
   const router = useRouter();
-  const { setUser } = useAuth();
   const [values, setValues] = useState({
     name: "",
     email: "",
@@ -60,7 +58,6 @@ export function RegisterForm() {
       setErrors({ ...result.fieldErrors, form: result.error });
       return;
     }
-    if (result.user) setUser(result.user);
     router.push("/verify-email");
   }
 

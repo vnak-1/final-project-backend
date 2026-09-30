@@ -25,6 +25,15 @@ test("registration needs a name, campus email and 8+ char password", () => {
   assert.deepEqual(Object.keys(errors).sort(), ["email", "name", "password"]);
 });
 
+test("registration accepts an optional major and a whole-number graduation year", () => {
+  const base = { name: "Dara", email: "dara@aupp.edu.kh", password: "longenough" };
+  assert.deepEqual(validateRegistration({ ...base, major: "Business", graduationYear: 2028 }), {});
+  assert.deepEqual(
+    Object.keys(validateRegistration({ ...base, major: 5, graduationYear: "2028" })).sort(),
+    ["graduationYear", "major"],
+  );
+});
+
 test("a full listing must have title, category and condition", () => {
   const errors = validateListing({});
   assert.deepEqual(Object.keys(errors).sort(), ["category", "condition", "title"]);

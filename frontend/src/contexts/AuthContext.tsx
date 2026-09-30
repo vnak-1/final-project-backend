@@ -10,11 +10,17 @@ interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  /** Resolves to an error message to show, or null once signed in. */
-  signIn: (email: string, password: string) => Promise<string | null>;
+  /** Resolves to `{}` once signed in, or to the error to show. */
+  signIn: (email: string, password: string) => Promise<SignInResult>;
   signOut: () => Promise<void>;
   /** Replaces the signed-in user, e.g. after registering or editing the profile. */
   setUser: (user: User | null) => void;
+}
+
+/** `needsVerification`: the password was right, but the account's email is not verified yet. */
+export interface SignInResult {
+  error?: string;
+  needsVerification?: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -42,7 +48,7 @@ export function AuthProvider({
     try {
       const result = await signInAction(email, password);
       if (result.user) setUser(result.user);
-      return result.error ?? null;
+      return { error: result.error, needsVerification: result.needsVerification };
     } finally {
       setIsLoading(false);
     }

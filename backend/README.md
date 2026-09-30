@@ -65,10 +65,10 @@ Send JSON. Routes marked 🔒 need the header `Authorization: Bearer <token>` (t
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/health` | API + database health check |
-| POST | `/api/auth/register` | `{ name, email, password }`. Only `.edu.kh` emails. Returns `{ user, token }` |
-| POST | `/api/auth/login` | `{ email, password }` → `{ user, token }` |
-| POST | `/api/auth/verify-email` | `{ token }` → marks the account verified (badge) |
-| POST 🔒 | `/api/auth/resend-verification` | Emails a new verification link (the old one stops working) |
+| POST | `/api/auth/register` | `{ name, email, password, major?, graduationYear? }`. Only `.edu.kh` emails. Emails a verification link; nobody is signed in yet |
+| POST | `/api/auth/login` | `{ email, password }` → `{ user, token }`. `403` until the email is verified |
+| POST | `/api/auth/verify-email` | `{ token }` → verifies the email, which unlocks signing in |
+| POST | `/api/auth/resend-verification` | `{ email, password }` → emails a new verification link (the old one stops working) |
 | GET 🔒 | `/api/auth/me` | The logged-in user |
 | GET | `/api/listings` | Browse. Query: `query`, `category`, `condition`, `type`, `minPrice`, `maxPrice`, `status` (default `active`) |
 | GET | `/api/listings/:id` | One listing, with seller info |
@@ -94,6 +94,9 @@ Errors always look like `{ "error": "message", "details": { "field": "message" }
 
 - **SQL injection:** every query uses `$1, $2, ...` parameters, never string concatenation.
 - **Passwords:** hashed with scrypt (Node's built-in `crypto`) plus a random salt; never returned by the API.
+- **Verified members only:** an account cannot sign in until the link sent to its `.edu.kh` address is opened, so a
+  made-up or borrowed email gets nowhere. An unverified sign-up is replaced if the email registers again, so a
+  stranger cannot block the real owner. Every protected request re-checks that the account exists and is verified.
 - **Auth:** signed JWTs expire after 7 days; listings can only be changed or deleted by their owner.
 - **Privacy:** emails appear only on your own account, never on public profiles.
 - **Secrets:** live in `.env` (git-ignored). Nothing secret is committed.

@@ -30,11 +30,6 @@ export default async function ProfilePage() {
                 .join(" · ")}
             </p>
             <p className="mt-2 text-sm text-foreground">{user.bio}</p>
-            {!user.isVerified ? (
-              <Link href="/verify-email" className="mt-1 text-sm font-medium text-foreground underline">
-                Verify your campus email
-              </Link>
-            ) : null}
           </div>
           <div className="flex gap-2">
             <Link href="/settings">
