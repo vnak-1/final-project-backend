@@ -1,5 +1,7 @@
 // `cn` is provided by the `cn` package that shadcn/ui installs and configures.
 // The helpers below are application-specific and are not part of shadcn.
+import type { Listing } from "@/types";
+
 export { cn } from "cn";
 
 /** Format a price for display. Whole amounts drop the trailing `.00`. */
@@ -9,6 +11,13 @@ export function formatPrice(amount: number): string {
     currency: "USD",
     minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
   }).format(amount);
+}
+
+/** Price text for a listing: giveaways are free, and a trade with no price is a straight swap. */
+export function formatListingPrice(listing: Pick<Listing, "listingType" | "price">): string {
+  if (listing.listingType === "giveaway") return "Free";
+  if (listing.listingType === "trade" && listing.price === 0) return "Trade";
+  return formatPrice(listing.price);
 }
 
 const RELATIVE_UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [

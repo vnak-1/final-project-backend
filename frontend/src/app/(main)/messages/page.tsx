@@ -1,16 +1,20 @@
 import { ConversationList } from "@/components/chat/ConversationList";
 import { Card } from "@/components/ui/card";
-import { getConversationPartner, getConversations } from "@/lib/api";
+import { getConversations, getUserById, requireUser } from "@/lib/api";
 import type { User } from "@/types";
 
 export const metadata = { title: "Messages | UniSwap" };
 
 export default async function MessagesPage() {
+  await requireUser();
   const conversations = await getConversations();
 
   // Resolved server-side so the client component stays free of lookups.
-  const partners = conversations.reduce<Record<string, User>>((acc, conversation) => {
-    const partner = getConversationPartner(conversation);
+  const people = await Promise.all(
+    conversations.map((conversation) => getUserById(conversation.partnerId)),
+  );
+  const partners = conversations.reduce<Record<string, User>>((acc, conversation, index) => {
+    const partner = people[index];
     if (partner) acc[conversation.id] = partner;
     return acc;
   }, {});
@@ -30,4 +34,3 @@ export default async function MessagesPage() {
     </div>
   );
 }
-

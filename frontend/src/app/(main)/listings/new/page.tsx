@@ -1,9 +1,12 @@
 import { NewListingForm } from "@/components/forms/NewListingForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireUser } from "@/lib/api";
 
 export const metadata = { title: "Sell an item | UniSwap" };
 
-export default function NewListingPage() {
+export default async function NewListingPage() {
+  await requireUser();
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <header>
@@ -24,4 +27,3 @@ export default function NewListingPage() {
     </div>
   );
 }
-

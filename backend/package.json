@@ -9,6 +9,7 @@
     "dev": "node --watch --env-file=.env src/server.js",
     "db:setup": "node --env-file=.env scripts/db-setup.js",
     "db:seed": "node --env-file=.env scripts/db-seed.js",
+    "email:test": "node --env-file=.env scripts/check-email.js",
     "test": "node --test"
   },
   "engines": {
@@ -17,6 +18,7 @@
   "dependencies": {
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^10.0.12",
     "pg": "^8.16.3"
   }
 }

@@ -2,14 +2,15 @@ import Link from "next/link";
 import { ListingImage } from "@/components/listings/ListingImage";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { Badge } from "@/components/ui/badge";
-import { CATEGORIES, conditionLabel } from "@/lib/constants";
-import { formatPrice, formatRelativeTime } from "@/lib/utils";
+import { CATEGORIES, conditionLabel, statusLabel } from "@/lib/constants";
+import { formatListingPrice, formatRelativeTime } from "@/lib/utils";
 import type { ListingWithSeller } from "@/types";
 
 const STATUS_VARIANTS = {
   active: "secondary",
   reserved: "default",
   sold: "outline",
+  traded: "outline",
 } as const;
 
 interface ListingCardProps {
@@ -35,7 +36,7 @@ export function ListingCard({ listing }: ListingCardProps) {
         {isUnavailable ? (
           <span className="absolute left-2 top-2">
             <Badge variant={STATUS_VARIANTS[listing.status]}>
-              {listing.status === "sold" ? "Sold" : "Reserved"}
+              {statusLabel(listing.status)}
             </Badge>
           </span>
         ) : null}
@@ -46,7 +47,7 @@ export function ListingCard({ listing }: ListingCardProps) {
           <h3 className="line-clamp-2 font-medium text-foreground group-hover:underline">
             {listing.title}
           </h3>
-          <p className="shrink-0 font-semibold">{formatPrice(listing.price)}</p>
+          <p className="shrink-0 font-semibold">{formatListingPrice(listing)}</p>
         </div>
 
         <div className="mt-auto flex flex-wrap items-center gap-2">

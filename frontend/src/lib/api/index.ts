@@ -1,113 +1,127 @@
-import {
-  CURRENT_USER_ID,
-  mockConversations,
-  mockListings,
-  mockMessages,
-  mockUsers,
-} from "@/lib/mock/data";
-import type {
-  Conversation,
-  Listing,
-  ListingFilters,
-  ListingWithSeller,
-  Message,
-  User,
-} from "@/types";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { cache } from "react";
+import { ApiError, apiFetch, TOKEN_COOKIE } from "@/lib/api/http";
+import type { Conversation, ListingFilters, ListingWithSeller, Message, User } from "@/types";
 
 /**
- * Mock API surface. Every function is async and resolves from in-memory data,
- * so pages can be written exactly as they will be written against a real API.
- * The small delay keeps loading states honest during development.
+ * Data reads for Server Components. Each function calls the Express API on the server,
+ * sending the login cookie's token, so pages stay plain async Server Components.
+ * Changes made from the browser (sign in, post a listing, send a message) live in ./actions.ts.
  */
 
-const LATENCY_MS = 150;
-
-function delay<T>(value: T): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), LATENCY_MS));
+/** Runs an API request, turning "404 Not Found" into `null` (e.g. a deleted listing). */
+async function orNull<T>(request: Promise<T>): Promise<T | null> {
+  try {
+    return await request;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
 }
 
-function findUser(id: string): User {
-  const user = mockUsers.find((item) => item.id === id);
-  if (!user) throw new Error(`Unknown user: ${id}`);
+/**
+ * The signed-in user, or null. `cache` makes this one API call per page render,
+ * however many layouts and pages ask for it.
+ */
+export const getCurrentUser = cache(async (): Promise<User | null> => {
+  if (!(await cookies()).has(TOKEN_COOKIE)) return null;
+  try {
+    return (await apiFetch<{ user: User }>("/api/auth/me")).user;
+  } catch (error) {
+    // An expired or invalid token just means "signed out".
+    if (error instanceof ApiError && error.status === 401) return null;
+    throw error;
+  }
+});
+
+/** For pages that only make sense when signed in: sends everyone else to the login page. */
+export async function requireUser(): Promise<User> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
   return user;
 }
 
-function withSeller(listing: Listing): ListingWithSeller {
-  const seller = findUser(listing.sellerId);
-  return {
-    ...listing,
-    seller: {
-      id: seller.id,
-      name: seller.name,
-      avatarUrl: seller.avatarUrl,
-      isVerified: seller.isVerified,
-    },
-  };
-}
-
-/** Apply the browse filters. Kept as a pure function so it is easy to unit test. */
-function matchesFilters(listing: Listing, filters: ListingFilters): boolean {
-  if (filters.query) {
-    const haystack = `${listing.title} ${listing.description}`.toLowerCase();
-    if (!haystack.includes(filters.query.toLowerCase())) return false;
-  }
-  if (filters.category && filters.category !== "all" && listing.category !== filters.category) {
-    return false;
-  }
-  if (filters.condition && filters.condition !== "all" && listing.condition !== filters.condition) {
-    return false;
-  }
-  if (filters.minPrice !== undefined && listing.price < filters.minPrice) return false;
-  if (filters.maxPrice !== undefined && listing.price > filters.maxPrice) return false;
-  return true;
-}
-
 export async function getListings(filters: ListingFilters = {}): Promise<ListingWithSeller[]> {
-  const result = mockListings
-    .filter((listing) => listing.status === "active" || filters.category === undefined)
-    .filter((listing) => matchesFilters(listing, filters))
-    .map(withSeller);
-  return delay(result);
+  const params = new URLSearchParams();
+  if (filters.query) params.set("query", filters.query);
+  if (filters.category && filters.category !== "all") params.set("category", filters.category);
+  if (filters.condition && filters.condition !== "all") params.set("condition", filters.condition);
+  if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));
+  if (filters.maxPrice !== undefined) params.set("maxPrice", String(filters.maxPrice));
+
+  const { listings } = await apiFetch<{ listings: ListingWithSeller[] }>(`/api/listings?${params}`);
+  return listings;
 }
 
 export async function getListingById(id: string): Promise<ListingWithSeller | null> {
-  const listing = mockListings.find((item) => item.id === id);
-  return delay(listing ? withSeller(listing) : null);
+  const result = await orNull(
+    apiFetch<{ listing: ListingWithSeller }>(`/api/listings/${encodeURIComponent(id)}`),
+  );
+  return result?.listing ?? null;
 }
 
 /** All listings posted by one seller, in any status. Used by the profile pages. */
 export async function getListingsBySeller(sellerId: string): Promise<ListingWithSeller[]> {
-  return delay(mockListings.filter((listing) => listing.sellerId === sellerId).map(withSeller));
+  const result = await orNull(
+    apiFetch<{ listings: ListingWithSeller[] }>(`/api/users/${encodeURIComponent(sellerId)}/listings`),
+  );
+  return result?.listings ?? [];
 }
 
 /** Listings belonging to the signed-in user. */
-export async function getMyListings(sellerId = CURRENT_USER_ID): Promise<ListingWithSeller[]> {
-  return getListingsBySeller(sellerId);
+export async function getMyListings(): Promise<ListingWithSeller[]> {
+  const user = await getCurrentUser();
+  return user ? getListingsBySeller(user.id) : [];
 }
 
 export async function getUserById(id: string): Promise<User | null> {
-  return delay(mockUsers.find((item) => item.id === id) ?? null);
+  const result = await orNull(apiFetch<{ user: User }>(`/api/users/${encodeURIComponent(id)}`));
+  return result?.user ?? null;
 }
 
-export async function getConversations(userId = CURRENT_USER_ID): Promise<Conversation[]> {
-  return delay(mockConversations.filter((item) => item.participantIds.includes(userId)));
+/** A thread's id in the URL: the listing plus the other person. UUIDs never contain "_". */
+export function conversationId(listingId: string, partnerId: string): string {
+  return `${listingId}_${partnerId}`;
 }
 
-export async function getMessages(conversationId: string): Promise<Message[]> {
-  return delay(
-    mockMessages
-      .filter((message) => message.conversationId === conversationId)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+/** The reverse of `conversationId`. Returns null for a malformed id. */
+export function parseConversationId(id: string): { listingId: string; partnerId: string } | null {
+  const [listingId, partnerId, ...rest] = id.split("_");
+  if (!listingId || !partnerId || rest.length > 0) return null;
+  return { listingId, partnerId };
+}
+
+/** The signed-in user's chat threads, newest first. */
+export async function getConversations(): Promise<Conversation[]> {
+  const { conversations } = await apiFetch<{ conversations: Omit<Conversation, "id">[] }>(
+    "/api/messages/conversations",
   );
+  return conversations.map((item) => ({ ...item, id: conversationId(item.listingId, item.partnerId) }));
 }
 
-/** The other participant in a conversation, given the signed-in user. */
-export function getConversationPartner(
-  conversation: Conversation,
-  userId = CURRENT_USER_ID,
-): User | null {
-  const partnerId = conversation.participantIds.find((id) => id !== userId);
-  if (!partnerId) return null;
-  return mockUsers.find((item) => item.id === partnerId) ?? null;
+/** One thread between the signed-in user and `partnerId` about a listing, oldest first. */
+export async function getMessages(listingId: string, partnerId: string): Promise<Message[]> {
+  const params = new URLSearchParams({ listingId, withUserId: partnerId });
+  const { messages } = await apiFetch<{ messages: Message[] }>(`/api/messages?${params}`);
+  return messages;
 }
 
+/** Marks what `partnerId` sent me in this thread as read. Called when the thread is opened. */
+export async function markThreadRead(listingId: string, partnerId: string): Promise<void> {
+  await apiFetch("/api/messages/read", {
+    method: "PATCH",
+    body: JSON.stringify({ listingId, withUserId: partnerId }),
+  });
+}
+
+/** Confirms the token from an email-verification link. False if it is invalid or already used. */
+export async function verifyEmail(token: string): Promise<boolean> {
+  try {
+    await apiFetch("/api/auth/verify-email", { method: "POST", body: JSON.stringify({ token }) });
+    return true;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 400) return false;
+    throw error;
+  }
+}

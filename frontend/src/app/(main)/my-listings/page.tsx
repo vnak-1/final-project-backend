@@ -2,11 +2,12 @@ import { Tag } from "lucide-react";
 import Link from "next/link";
 import { ListingGrid } from "@/components/listings/ListingGrid";
 import { Button } from "@/components/ui/button";
-import { getMyListings } from "@/lib/api";
+import { getMyListings, requireUser } from "@/lib/api";
 
 export const metadata = { title: "My listings | UniSwap" };
 
 export default async function MyListingsPage() {
+  await requireUser();
   const listings = await getMyListings();
 
   return (

@@ -1,25 +1,18 @@
 import { Inbox } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { ListingGrid } from "@/components/listings/ListingGrid";
 import { UserAvatar } from "@/components/profile/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
-import { getConversations, getMyListings, getUserById } from "@/lib/api";
-import { CURRENT_USER_ID } from "@/lib/mock/data";
+import { getConversations, getMyListings, requireUser } from "@/lib/api";
 
 export const metadata = { title: "My profile | UniSwap" };
 
 /** Profile of the signed-in user. */
 export default async function ProfilePage() {
-  const [listings, conversations, user] = await Promise.all([
-    getMyListings(),
-    getConversations(),
-    getUserById(CURRENT_USER_ID),
-  ]);
-
-  if (!user) notFound();
+  const user = await requireUser();
+  const [listings, conversations] = await Promise.all([getMyListings(), getConversations()]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -32,9 +25,16 @@ export default async function ProfilePage() {
               <VerifiedBadge isVerified={user.isVerified} />
             </h1>
             <p className="text-sm text-muted-foreground">
-              {user.major} &middot; Class of {user.graduationYear}
+              {[user.major, user.graduationYear && `Class of ${user.graduationYear}`]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
             <p className="mt-2 text-sm text-foreground">{user.bio}</p>
+            {!user.isVerified ? (
+              <Link href="/verify-email" className="mt-1 text-sm font-medium text-foreground underline">
+                Verify your campus email
+              </Link>
+            ) : null}
           </div>
           <div className="flex gap-2">
             <Link href="/settings">

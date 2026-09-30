@@ -12,18 +12,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { updateProfile } from "@/lib/api/actions";
 
 /**
  * Account settings.
  *
- * Preferences are edited locally and confirmed in the UI only. Persisting them
- * needs a server route, and a real avatar upload needs storage, so neither is
- * faked here. The "Save changes" button is the hook point for that work.
+ * Name and bio are saved to the API. Email cannot be changed, since it is the campus
+ * identity the account was verified with. Notification preferences have no server
+ * route yet, so they stay local to this page.
  */
 export function SettingsForm() {
-  const { user, signOut } = useAuth();
-  const [saved, setSaved] = useState(false);
+  const { user, signOut, setUser } = useAuth();
+  const [status, setStatus] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [name, setName] = useState(user?.name ?? "");
   const [bio, setBio] = useState(user?.bio ?? "");
+
+  async function handleSave() {
+    setIsSaving(true);
+    const result = await updateProfile({ name: name.trim(), bio });
+    setIsSaving(false);
+    if (result.user) setUser(result.user);
+    setStatus(result.error ?? "Profile saved.");
+  }
 
   if (!user) {
     return (
@@ -43,10 +54,17 @@ export function SettingsForm() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <Field label="Name">
-            <FieldInput name="name" defaultValue={user.name} />
+            <FieldInput
+              name="name"
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value);
+                setStatus(null);
+              }}
+            />
           </Field>
           <Field label="Campus email">
-            <FieldInput name="email" type="email" defaultValue={user.email} />
+            <FieldInput name="email" type="email" defaultValue={user.email} readOnly />
           </Field>
           <Field label="Bio">
             <FieldTextarea
@@ -55,7 +73,7 @@ export function SettingsForm() {
               value={bio}
               onChange={(event) => {
                 setBio(event.target.value);
-                setSaved(false);
+                setStatus(null);
               }}
             />
           </Field>
@@ -88,17 +106,19 @@ export function SettingsForm() {
       </Card>
 
       <div className="flex items-center gap-3">
-        <Button onClick={() => setSaved(true)}>Save changes</Button>
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? "Saving..." : "Save changes"}
+        </Button>
         <Button
           variant="destructive"
-          onClick={signOut}
+          onClick={() => void signOut()}
           className="border border-brand-danger bg-brand-50 text-brand-ink hover:bg-brand-200"
         >
           Sign out
         </Button>
-        {saved ? (
+        {status ? (
           <p role="status" className="text-sm text-foreground">
-            Saved locally. Not yet persisted to a server.
+            {status}
           </p>
         ) : null}
       </div>

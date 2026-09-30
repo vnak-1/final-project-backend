@@ -1,4 +1,4 @@
-import type { ListingCategory, ListingCondition } from "@/types";
+import type { ListingCategory, ListingCondition, ListingStatus, ListingType } from "@/types";
 
 export const APP_NAME = "UniSwap";
 
@@ -32,6 +32,20 @@ export const CONDITIONS: Array<{ value: ListingCondition; label: string }> = [
   { value: "fair", label: "Fair" },
 ];
 
+export const LISTING_TYPES: Array<{ value: ListingType; label: string }> = [
+  { value: "sale", label: "For sale" },
+  { value: "trade", label: "For trade" },
+  { value: "giveaway", label: "Giveaway" },
+  { value: "buy_request", label: "Wanted" },
+];
+
+const STATUS_LABELS: Record<ListingStatus, string> = {
+  active: "Available",
+  reserved: "Reserved",
+  sold: "Sold",
+  traded: "Traded",
+};
+
 export const PRICE_MIN = 0;
 export const PRICE_MAX = 1000;
 
@@ -43,5 +57,14 @@ export function conditionLabel(value: ListingCondition): string {
 /** Maps a category value to its human label; falls back to the raw value. */
 export function categoryLabel(value: ListingCategory): string {
   return CATEGORIES.find((item) => item.value === value)?.label ?? value;
+}
+
+/** Maps a listing type to its human label; falls back to the raw value. */
+export function listingTypeLabel(value: ListingType): string {
+  return LISTING_TYPES.find((item) => item.value === value)?.label ?? value;
+}
+
+export function statusLabel(value: ListingStatus): string {
+  return STATUS_LABELS[value] ?? value;
 }
 

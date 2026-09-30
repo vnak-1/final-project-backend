@@ -27,7 +27,9 @@ export default async function PublicProfilePage({
             <VerifiedBadge isVerified={user.isVerified} />
           </h1>
           <p className="text-sm text-muted-foreground">
-            {user.major} &middot; Class of {user.graduationYear}
+            {[user.major, user.graduationYear && `Class of ${user.graduationYear}`]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
           <Badge
             variant={user.isVerified ? "secondary" : "outline"}

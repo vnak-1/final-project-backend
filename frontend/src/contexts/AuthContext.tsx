@@ -1,45 +1,59 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { CURRENT_USER_ID, mockUsers } from "@/lib/mock/data";
+import { signIn as signInAction, signOut as signOutAction } from "@/lib/api/actions";
 import type { User } from "@/types";
 
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signIn: (email: string) => Promise<void>;
-  signOut: () => void;
+  /** Resolves to an error message to show, or null once signed in. */
+  signIn: (email: string, password: string) => Promise<string | null>;
+  signOut: () => Promise<void>;
+  /** Replaces the signed-in user, e.g. after registering or editing the profile. */
+  setUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 /**
- * Mock auth session backed by in-memory state.
+ * Tells client components (navbar, settings) who is signed in.
  *
- * There is no real credential check here on purpose: no password is stored,
- * compared, or logged. When a backend arrives, replace the body of `signIn`
- * with a fetch call and keep this interface stable so the UI does not change.
- * Never put API keys or secrets in this file.
+ * The real session is an httpOnly cookie holding the API's token. The root layout reads it on
+ * the server and passes the user in as `initialUser`. Signing in and out go through Server
+ * Actions, which set or clear that cookie. No token or password is kept in client state.
  */
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+export function AuthProvider({
+  initialUser,
+  children,
+}: {
+  initialUser: User | null;
+  children: ReactNode;
+}) {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(initialUser);
   const [isLoading, setIsLoading] = useState(false);
 
-  const signIn = useCallback(async (email: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const match =
-        mockUsers.find((candidate) => candidate.email === email) ??
-        mockUsers.find((candidate) => candidate.id === CURRENT_USER_ID);
-      if (match) setUser(match);
+      const result = await signInAction(email, password);
+      if (result.user) setUser(result.user);
+      return result.error ?? null;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const signOut = useCallback(() => setUser(null), []);
+  const signOut = useCallback(async () => {
+    await signOutAction();
+    setUser(null);
+    router.push("/");
+    router.refresh();
+  }, [router]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -48,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: user !== null,
       signIn,
       signOut,
+      setUser,
     }),
     [user, isLoading, signIn, signOut],
   );
@@ -62,4 +77,3 @@ export function useAuth(): AuthContextValue {
   }
   return context;
 }
-

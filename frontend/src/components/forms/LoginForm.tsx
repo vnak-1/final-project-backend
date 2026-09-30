@@ -8,49 +8,53 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
- * Sign-in form.
- *
- * The password field exists in the UI but is deliberately not sent anywhere:
- * there is no backend yet and no secret may live in client code. `signIn` only
- * receives the email, and the real credential check belongs on the server.
+ * Sign-in form. The email and password go to a Server Action, which checks them against the
+ * API and stores the session in an httpOnly cookie. The password is never kept in state after
+ * submitting and never stored in the browser.
  */
 export function LoginForm() {
   const router = useRouter();
   const { signIn, isLoading } = useAuth();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!email.trim()) {
-      setError("Enter your campus email.");
+    if (!email.trim() || !password) {
+      setError("Enter your campus email and password.");
       return;
     }
     setError(null);
-    await signIn(email.trim());
+    const message = await signIn(email.trim(), password);
+    if (message) {
+      setError(message);
+      setPassword("");
+      return;
+    }
     router.push("/");
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <Field label="Campus email" error={error ?? undefined}>
+      <Field label="Campus email">
         <FieldInput
           name="email"
           type="email"
           autoComplete="email"
-          placeholder="you@example.edu"
+          placeholder="you@university.edu.kh"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
         />
       </Field>
 
-      <Field label="Password">
+      <Field label="Password" error={error ?? undefined}>
         <FieldInput
           name="password"
           type="password"
           autoComplete="current-password"
-          placeholder="Not required in this demo"
-          disabled
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
         />
       </Field>
 
@@ -73,4 +77,3 @@ export function LoginForm() {
     </form>
   );
 }
-

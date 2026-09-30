@@ -12,31 +12,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
+import { register } from "@/lib/api/actions";
 
 /**
- * Registration form. Creates no account yet: it validates the fields, then
- * sends the user to the email-verification step, which is where a real
- * confirmation email would be triggered.
+ * Registration form. Creates the account through the API, which signs the new user in
+ * and logs an email-verification link, then shows the "check your email" step.
  */
 export function RegisterForm() {
   const router = useRouter();
+  const { setUser } = useAuth();
   const [values, setValues] = useState({
     name: "",
     email: "",
+    password: "",
     major: "",
     graduationYear: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const update = (key: keyof typeof values) => (value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const next: Record<string, string> = {};
 
     if (!values.name.trim()) next.name = "Enter your name.";
-    if (!values.email.includes("@")) next.email = "Enter a valid campus email.";
+    if (!values.email.trim().toLowerCase().endsWith(".edu.kh")) {
+      next.email = "Use your campus email (ending in .edu.kh).";
+    }
+    if (values.password.length < 8) next.password = "Use at least 8 characters.";
     const year = Number(values.graduationYear);
     if (!Number.isInteger(year) || year < 2024 || year > 2035) {
       next.graduationYear = "Enter a year between 2024 and 2035.";
@@ -45,7 +52,15 @@ export function RegisterForm() {
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
-    // Verification would normally be triggered by a server route.
+    setIsSubmitting(true);
+    const result = await register({ ...values, name: values.name.trim(), graduationYear: year });
+    setIsSubmitting(false);
+    if (result.error) {
+      // Field errors from the API (e.g. email) go under their field; anything else under the button.
+      setErrors({ ...result.fieldErrors, form: result.error });
+      return;
+    }
+    if (result.user) setUser(result.user);
     router.push("/verify-email");
   }
 
@@ -64,9 +79,19 @@ export function RegisterForm() {
           name="email"
           type="email"
           autoComplete="email"
-          placeholder="you@example.edu"
+          placeholder="you@university.edu.kh"
           value={values.email}
           onChange={(event) => update("email")(event.target.value)}
+        />
+      </Field>
+      <Field label="Password" error={errors.password}>
+        <FieldInput
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          placeholder="At least 8 characters"
+          value={values.password}
+          onChange={(event) => update("password")(event.target.value)}
         />
       </Field>
       <Field label="Major">
@@ -99,9 +124,14 @@ export function RegisterForm() {
         </Select>
       </div>
 
-      <Button type="submit" size="lg">
-        Create account
+      <Button type="submit" size="lg" disabled={isSubmitting}>
+        {isSubmitting ? "Creating account..." : "Create account"}
       </Button>
+      {errors.form ? (
+        <p role="alert" className="text-sm text-foreground">
+          {errors.form}
+        </p>
+      ) : null}
 
       <p className="text-center text-sm text-muted-foreground">
         Already registered?{" "}

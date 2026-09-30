@@ -77,7 +77,7 @@ function SearchBox() {
 
 function UserMenu() {
   const pathname = usePathname();
-  const { user, isAuthenticated, signIn, signOut } = useAuth();
+  const { user, isAuthenticated, signOut } = useAuth();
 
   if (!isAuthenticated || !user) {
     return (
@@ -87,11 +87,6 @@ function UserMenu() {
           "shrink-0 rounded-lg border border-border bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-200",
           pathname === "/login" && "bg-brand-200",
         )}
-        onClick={() => {
-          // The mock session has no real credential check, so signing in from
-          // the navbar just activates the seeded user.
-          void signIn("");
-        }}
       >
         Sign in
       </Link>
@@ -105,7 +100,7 @@ function UserMenu() {
       </Link>
       <button
         type="button"
-        onClick={signOut}
+        onClick={() => void signOut()}
         className="rounded-lg border border-brand-danger bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-200"
       >
         Sign out

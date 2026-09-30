@@ -3,45 +3,49 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Field, FieldInput, FieldTextarea } from "@/components/forms/Field";
+import { FieldSelect } from "@/components/forms/FieldSelect";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { CATEGORIES, CONDITIONS } from "@/lib/constants";
+import { createListing } from "@/lib/api/actions";
+import { CATEGORIES, CONDITIONS, LISTING_TYPES } from "@/lib/constants";
+
+/** Matches the API's upload limit (backend/src/routes/uploads.js). */
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 /**
- * Create-a-listing form.
- *
- * Validation and navigation are wired up, but nothing is persisted: there is no
- * POST route yet. The submit handler is the single place to add the real call.
+ * Create-a-listing form. Checks the fields here for quick feedback, then sends the whole form
+ * (photo included) to a Server Action, which uploads the photo and creates the listing via the API.
  */
 export function NewListingForm() {
   const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [listingType, setListingType] = useState("sale");
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const title = String(data.get("title") ?? "").trim();
-    const price = Number(data.get("price"));
+    const price = Number(data.get("price") ?? 0);
     const description = String(data.get("description") ?? "").trim();
+    const photo = data.get("photo");
 
     const next: Record<string, string> = {};
     if (title.length < 5) next.title = "Use at least 5 characters.";
     if (!Number.isFinite(price) || price < 0) next.price = "Enter a valid price.";
     if (description.length < 20) next.description = "Describe the item in at least 20 characters.";
+    if (photo instanceof File && photo.size > MAX_PHOTO_BYTES) next.photo = "Choose a photo under 5 MB.";
 
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
     setIsSubmitting(true);
-    // No backend yet, so this only returns the user to their listings.
-    router.push("/my-listings");
+    const result = await createListing(data);
+    if (result.listingId) {
+      router.push(`/listings/${result.listingId}`);
+      return;
+    }
+    setIsSubmitting(false);
+    setErrors({ ...result.fieldErrors, form: result.error ?? "Could not publish the listing." });
   }
 
   return (
@@ -69,58 +73,57 @@ export function NewListingForm() {
       </Field>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Price (USD)" error={errors.price}>
-          <FieldInput
-            name="price"
-            type="number"
-            min={0}
-            step="1"
-            inputMode="decimal"
-            className="bg-brand-50/40 placeholder:text-foreground/50"
+        <Field label="Listing type" error={errors.listingType}>
+          <FieldSelect
+            name="listingType"
+            defaultValue="sale"
+            options={LISTING_TYPES}
+            onValueChange={setListingType}
           />
         </Field>
-        <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium">Category</span>
-          <Select name="category" defaultValue="textbooks">
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {CATEGORIES.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* A giveaway has no price, so the field is hidden and the price is sent as 0. */}
+        {listingType !== "giveaway" ? (
+          <Field label="Price (USD)" error={errors.price}>
+            <FieldInput
+              name="price"
+              type="number"
+              min={0}
+              step="1"
+              inputMode="decimal"
+              className="bg-brand-50/40 placeholder:text-foreground/50"
+            />
+          </Field>
+        ) : null}
+        <Field label="Category" error={errors.category}>
+          <FieldSelect name="category" defaultValue="textbooks" options={CATEGORIES} />
+        </Field>
+        <Field label="Condition" error={errors.condition}>
+          <FieldSelect name="condition" defaultValue="good" options={CONDITIONS} />
+        </Field>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">Condition</span>
-        <Select name="condition" defaultValue="good">
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {CONDITIONS.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <Field label="Photo (optional)" error={errors.photo}>
+        <FieldInput
+          name="photo"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="bg-brand-50/40"
+        />
+      </Field>
 
       <div className="flex items-center gap-2">
         <Button type="submit" size="lg" disabled={isSubmitting}>
           {isSubmitting ? "Publishing..." : "Publish listing"}
         </Button>
-        <Button variant="ghost" onClick={() => router.back()}>
+        <Button type="button" variant="ghost" onClick={() => router.back()}>
           Cancel
         </Button>
       </div>
+      {errors.form ? (
+        <p role="alert" className="text-sm text-foreground">
+          {errors.form}
+        </p>
+      ) : null}
     </form>
   );
 }
-
