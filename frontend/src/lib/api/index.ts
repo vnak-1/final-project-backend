@@ -45,6 +45,7 @@ export async function requireUser(): Promise<User> {
 export async function getListings(filters: ListingFilters = {}): Promise<ListingWithSeller[]> {
   const params = new URLSearchParams();
   if (filters.query) params.set("query", filters.query);
+  if (filters.listingType && filters.listingType !== "all") params.set("type", filters.listingType);
   if (filters.category && filters.category !== "all") params.set("category", filters.category);
   if (filters.condition && filters.condition !== "all") params.set("condition", filters.condition);
   if (filters.minPrice !== undefined) params.set("minPrice", String(filters.minPrice));

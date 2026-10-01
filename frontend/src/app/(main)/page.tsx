@@ -4,7 +4,7 @@ import { FilterPanel } from "@/components/listings/FilterPanel";
 import { ListingGrid } from "@/components/listings/ListingGrid";
 import { HeroBand } from "@/components/marketing/HeroBand";
 import { getListings } from "@/lib/api";
-import type { ListingCategory, ListingCondition, ListingFilters } from "@/types";
+import type { ListingCategory, ListingCondition, ListingFilters, ListingType } from "@/types";
 
 /** Browse page. Filters arrive as query params and are applied server-side. */
 export default async function BrowsePage({ searchParams }: PageProps<"/">) {
@@ -49,7 +49,9 @@ function parseFilters(
     Array.isArray(value) ? value[0] : value;
 
   const category = first(params.category);
+  const type = first(params.type);
   const condition = first(params.condition);
+  const minPrice = Number(first(params.minPrice));
   const maxPrice = Number(first(params.maxPrice));
 
   const categories: ListingCategory[] = [
@@ -61,9 +63,12 @@ function parseFilters(
     "other",
   ];
   const conditions: ListingCondition[] = ["new", "like_new", "good", "fair"];
+  const listingTypes: ListingType[] = ["sale", "trade", "giveaway", "buy_request"];
 
   return {
     query: first(params.q),
+    listingType:
+      type && listingTypes.includes(type as ListingType) ? (type as ListingType) : "all",
     category:
       category && categories.includes(category as ListingCategory)
         ? (category as ListingCategory)
@@ -72,6 +77,7 @@ function parseFilters(
       condition && conditions.includes(condition as ListingCondition)
         ? (condition as ListingCondition)
         : "all",
+    minPrice: Number.isFinite(minPrice) && minPrice > 0 ? minPrice : undefined,
     maxPrice: Number.isFinite(maxPrice) && maxPrice > 0 ? maxPrice : undefined,
   };
 }

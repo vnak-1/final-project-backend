@@ -75,6 +75,7 @@ export interface ListingWithSeller extends Listing {
 
 export interface ListingFilters {
   query?: string;
+  listingType?: ListingType | "all";
   category?: ListingCategory | "all";
   minPrice?: number;
   maxPrice?: number;

@@ -58,6 +58,32 @@ the API (`utils/validation.js`) and in the database (`CHECK` constraints):
 - **listing type:** sale, buy_request, trade, giveaway
 - **status:** active, reserved, sold, traded
 
+### Search
+
+`GET /api/listings?query=...` matches a listing when any of these is true (see `buildBrowseQuery`
+in [`src/db/listings.js`](src/db/listings.js)):
+
+1. **Full-text search** on title, description and category, ignoring word endings
+   ("textbook" finds the textbooks category). Uses a `search_vector` column that PostgreSQL keeps up to date.
+2. **Part of a word:** "mac" finds "MacBook".
+3. **Typos in a title word**, using the `pg_trgm` extension: "frige" finds "fridge".
+
+With a search term, results are sorted best match first, and title matches rank above description matches.
+Without one, they are sorted newest first.
+
+**Upgrading a database created before search was added?** Either re-run `npm run db:setup` (wipes data),
+or keep your data by running this once in `psql` or the Supabase SQL editor:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS search_vector TSVECTOR GENERATED ALWAYS AS (
+  setweight(to_tsvector('english', title), 'A')
+  || setweight(to_tsvector('english', description), 'B')
+  || setweight(to_tsvector('english', category), 'C')
+) STORED;
+CREATE INDEX IF NOT EXISTS listings_search_idx ON listings USING GIN (search_vector);
+```
+
 ## API
 
 Send JSON. Routes marked 🔒 need the header `Authorization: Bearer <token>` (the token comes from register or login).
@@ -70,7 +96,7 @@ Send JSON. Routes marked 🔒 need the header `Authorization: Bearer <token>` (t
 | POST | `/api/auth/verify-email` | `{ token }` → verifies the email, which unlocks signing in |
 | POST | `/api/auth/resend-verification` | `{ email, password }` → emails a new verification link (the old one stops working) |
 | GET 🔒 | `/api/auth/me` | The logged-in user |
-| GET | `/api/listings` | Browse. Query: `query`, `category`, `condition`, `type`, `minPrice`, `maxPrice`, `status` (default `active`) |
+| GET | `/api/listings` | Browse and search (ranked, typo tolerant; see Search above). Query: `query`, `category`, `condition`, `type`, `minPrice`, `maxPrice`, `status` (default `active`) |
 | GET | `/api/listings/:id` | One listing, with seller info |
 | POST 🔒 | `/api/listings` | `{ title, category, condition, description?, listingType?, price?, cashTopup?, imageUrls? }` |
 | PATCH 🔒 | `/api/listings/:id` | Owner only. Any subset of fields, e.g. `{ "status": "sold" }` |

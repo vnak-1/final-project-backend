@@ -1,0 +1,37 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+// db/listings.js loads config.js, which requires these. No database connection is made.
+process.env.DATABASE_URL ??= "postgres://unused";
+process.env.JWT_SECRET ??= "unused";
+const { buildBrowseQuery } = await import("../src/db/listings.js");
+
+test("without a search term, listings are newest first", () => {
+  const { text, params } = buildBrowseQuery({ status: "active" });
+  assert.deepEqual(params, ["active"]);
+  assert.match(text, /ORDER BY l\.created_at DESC/);
+  assert.doesNotMatch(text, /websearch_to_tsquery/);
+});
+
+test("filters become numbered parameters, never pasted into the SQL", () => {
+  const { text, params } = buildBrowseQuery({
+    status: "active", category: "bikes", listingType: "trade", minPrice: 10, maxPrice: 100,
+  });
+  assert.deepEqual(params, ["active", "bikes", "trade", 10, 100]);
+  assert.match(text, /l\.listing_type = \$3/);
+  assert.match(text, /l\.price >= \$4 AND l\.price <= \$5/);
+});
+
+test("a search term is ranked and typo tolerant, and stays a parameter", () => {
+  const { text, params } = buildBrowseQuery({ status: "active", query: "' OR 1=1 --" });
+  assert.deepEqual(params, ["active", "' OR 1=1 --", "%' OR 1=1 --%"]);
+  assert.doesNotMatch(text, /OR 1=1/);
+  assert.match(text, /websearch_to_tsquery\('english', \$2\)/);
+  assert.match(text, /word_similarity\(\$2, l\.title\)/);
+  assert.match(text, /ORDER BY ts_rank/);
+});
+
+test("% and _ in a search term are literal characters, not wildcards", () => {
+  const { params } = buildBrowseQuery({ status: "active", query: "50%_off" });
+  assert.equal(params[2], "%50\\%\\_off%");
+});

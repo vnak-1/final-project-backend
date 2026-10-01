@@ -5,6 +5,9 @@
 
 DROP TABLE IF EXISTS reviews, messages, listings, users CASCADE;
 
+-- pg_trgm ships with PostgreSQL (and is available on Supabase). Search uses it to tolerate typos.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 CREATE TABLE users (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name               TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 80),
@@ -36,11 +39,19 @@ CREATE TABLE listings (
   status       TEXT NOT NULL DEFAULT 'active' CHECK (status IN
                  ('active', 'reserved', 'sold', 'traded')),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Full-text search words, kept up to date by PostgreSQL itself. Title words weigh most ('A'),
+  -- then description ('B'), then category ('C'), so title matches rank highest.
+  search_vector TSVECTOR GENERATED ALWAYS AS (
+    setweight(to_tsvector('english', title), 'A')
+    || setweight(to_tsvector('english', description), 'B')
+    || setweight(to_tsvector('english', category), 'C')
+  ) STORED
 );
 
 CREATE INDEX listings_browse_idx ON listings (status, created_at DESC);
 CREATE INDEX listings_user_idx ON listings (user_id);
+CREATE INDEX listings_search_idx ON listings USING GIN (search_vector);
 
 CREATE TABLE messages (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

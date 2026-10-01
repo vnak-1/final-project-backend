@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { findListingById, LISTING_SELECT } from "../db/listings.js";
+import { buildBrowseQuery, findListingById } from "../db/listings.js";
 import { query } from "../db/pool.js";
 import { requireAuth } from "../middleware/auth.js";
 import { HttpError } from "../utils/httpError.js";
@@ -34,28 +34,10 @@ async function findOwnedListing(id, userId) {
 }
 
 // GET /api/listings?query=&category=&condition=&type=&minPrice=&maxPrice=&status=
+// With `query`, results are ranked best match first and tolerate small typos (see buildBrowseQuery).
 listingsRouter.get("/", async (req, res) => {
-  const filters = parseListingFilters(req.query);
-  const conditions = [];
-  const params = [];
-  // Adds one filter: each "?" becomes the next $n placeholder, and the value goes into params.
-  const add = (sql, value) => {
-    params.push(value);
-    conditions.push(sql.replaceAll("?", `$${params.length}`));
-  };
-
-  add("l.status = ?", filters.status);
-  if (filters.query) add("(l.title ILIKE ? OR l.description ILIKE ?)", `%${filters.query}%`);
-  if (filters.category) add("l.category = ?", filters.category);
-  if (filters.condition) add("l.condition = ?", filters.condition);
-  if (filters.listingType) add("l.listing_type = ?", filters.listingType);
-  if (filters.minPrice !== undefined) add("l.price >= ?", filters.minPrice);
-  if (filters.maxPrice !== undefined) add("l.price <= ?", filters.maxPrice);
-
-  const { rows } = await query(
-    `${LISTING_SELECT} WHERE ${conditions.join(" AND ")} ORDER BY l.created_at DESC LIMIT 100`,
-    params,
-  );
+  const { text, params } = buildBrowseQuery(parseListingFilters(req.query));
+  const { rows } = await query(text, params);
   res.json({ listings: rows.map(toListing) });
 });
 
