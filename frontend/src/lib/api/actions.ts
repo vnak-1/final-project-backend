@@ -115,6 +115,11 @@ export async function createListing(formData: FormData): Promise<ActionResult & 
         listingType: formData.get("listingType"),
         price: Number(formData.get("price") || 0),
         imageUrls,
+        // Auctions only. The form has already turned the local date and time into an ISO string.
+        ...(formData.get("listingType") === "auction" && {
+          auctionEndsAt: formData.get("auctionEndsAt"),
+          minIncrement: Number(formData.get("minIncrement") || 1),
+        }),
       }),
     });
     return { listingId: listing.id };
@@ -153,6 +158,20 @@ export async function deleteListing(id: string): Promise<ActionResult> {
   } catch (error) {
     return toActionError(error);
   }
+}
+
+/** Places a bid on an auction. The API enforces the rules (minimum amount, not your own, not ended). */
+export async function placeBid(listingId: string, amount: number): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/listings/${encodeURIComponent(listingId)}/bids`, {
+      method: "POST",
+      body: JSON.stringify({ amount }),
+    });
+  } catch (error) {
+    return toActionError(error);
+  }
+  refresh(); // re-render the listing so the new highest bid shows
+  return {};
 }
 
 export async function sendMessage(listingId: string, receiverId: string, body: string): Promise<ActionResult> {

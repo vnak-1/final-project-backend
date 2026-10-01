@@ -37,6 +37,7 @@ export const LISTING_TYPES: Array<{ value: ListingType; label: string }> = [
   { value: "trade", label: "For trade" },
   { value: "giveaway", label: "Giveaway" },
   { value: "buy_request", label: "Wanted" },
+  { value: "auction", label: "Auction" },
 ];
 
 const STATUS_LABELS: Record<ListingStatus, string> = {

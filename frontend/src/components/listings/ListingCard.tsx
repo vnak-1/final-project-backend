@@ -55,6 +55,13 @@ export function ListingCard({ listing }: ListingCardProps) {
           <span className="text-xs text-muted-foreground">{conditionLabel(listing.condition)}</span>
         </div>
 
+        {listing.auction ? (
+          <p className="text-xs font-medium">
+            {listing.auction.bidCount} {listing.auction.bidCount === 1 ? "bid" : "bids"} ·{" "}
+            {listing.auction.ended ? "bidding closed" : `ends ${formatRelativeTime(listing.auction.endsAt)}`}
+          </p>
+        ) : null}
+
         <p className="flex items-center gap-1 text-xs text-muted-foreground">
           {listing.seller.name}
           <VerifiedBadge isVerified={listing.seller.isVerified} />

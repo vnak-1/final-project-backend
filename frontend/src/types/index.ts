@@ -13,8 +13,27 @@ export type ListingCondition = "new" | "like_new" | "good" | "fair";
 
 export type ListingStatus = "active" | "reserved" | "sold" | "traded";
 
-/** What the poster wants: sell it, find one (buy request), swap it, or give it away. */
-export type ListingType = "sale" | "buy_request" | "trade" | "giveaway";
+/** What the poster wants: sell it, find one (buy request), swap it, give it away, or auction it. */
+export type ListingType = "sale" | "buy_request" | "trade" | "giveaway" | "auction";
+
+/** Bidding state of an auction listing. For an auction, `Listing.price` is the starting bid. */
+export interface AuctionInfo {
+  endsAt: string;
+  /** True once `endsAt` has passed; no more bids are accepted. */
+  ended: boolean;
+  /** Each bid must beat the highest by at least this much. */
+  minIncrement: number;
+  highestBid: number | null;
+  leadingBidderId: string | null;
+  bidCount: number;
+}
+
+export interface Bid {
+  id: string;
+  amount: number;
+  createdAt: string;
+  bidder: { id: string; name: string; isVerified: boolean };
+}
 
 export interface User {
   id: string;
@@ -43,6 +62,8 @@ export interface Listing {
   sellerId: string;
   status: ListingStatus;
   createdAt: string;
+  /** Only set for auction listings. */
+  auction: AuctionInfo | null;
 }
 
 export interface Message {

@@ -68,6 +68,12 @@ verified. `dara@aupp.edu.kh` is **unverified**, so its login returns 403 (useful
   fails, the verification link is printed in the API log.
 - **Search:** full-text (`search_vector` generated column + GIN index), partial words (ILIKE with
   `%`/`_` escaped), and title typos (`pg_trgm`, `word_similarity >= 0.5`). Ranked best match first.
+- **Auctions:** `listing_type = 'auction'` + `auction_ends_at` + `min_increment`; `price` is the
+  starting bid. Bids go through `POST /api/listings/:id/bids` (`routes/bids.js`), which locks the
+  listing row (`SELECT … FOR UPDATE` in `withTransaction`) so simultaneous bids cannot both win.
+  `server.js` runs `closeEndedAuctions()` every minute: an ended auction with bids becomes
+  `reserved` (highest bid wins; on a tie, the earlier bid). After the first bid, type, price,
+  end time and raise are locked (409). Every listing in the API has `auction: null | {...}`.
 - **Messaging:** there is no conversations table. A thread is all messages between two users about
   one listing (this follows the ER diagram).
 - **Uploads:** `POST /api/uploads` with raw image bytes (max 5 MB), saved to `backend/uploads/`
@@ -78,13 +84,14 @@ verified. `dara@aupp.edu.kh` is **unverified**, so its login returns 403 (useful
 
 ## Status and roadmap
 
-Done (week 5): auth with email verification, listings CRUD with four types and statuses, search and
-filters, profiles, per-listing messaging, photo uploads; frontend fully wired to the API.
+Done (week 5): auth with email verification, listings CRUD with five types (incl. auction) and statuses,
+ranked typo-tolerant search and filters, auctions/bidding, profiles, per-listing messaging, photo
+uploads; frontend fully wired to the API.
 
 Next (professor's feedback, in priority order):
 1. Move the database to Supabase (only `DATABASE_URL` changes; it is still PostgreSQL)
-2. Auction / bidding: highest bid by a deadline wins; new `bids` table; keep it minimal
-3. Email notifications (new message, outbid, won, sold) through one shared notify function
-4. Cloudinary uploads, then deploy: Render (API), Supabase (database), Vercel (frontend, root = `frontend`)
-5. Online payment in Stripe test mode (KHQR/Bakong as the local alternative)
-6. Telegram bot notifications (reusing the notify function), real-time chat if time allows
+2. Email notifications (new message, outbid, auction won, sold) through one shared notify function;
+   hook "auction won" into the loop in `server.js` that logs closed auctions
+3. Cloudinary uploads, then deploy: Render (API), Supabase (database), Vercel (frontend, root = `frontend`)
+4. Online payment in Stripe test mode (KHQR/Bakong as the local alternative)
+5. Telegram bot notifications (reusing the notify function), real-time chat if time allows

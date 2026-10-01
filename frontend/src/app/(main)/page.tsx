@@ -63,7 +63,7 @@ function parseFilters(
     "other",
   ];
   const conditions: ListingCondition[] = ["new", "like_new", "good", "fair"];
-  const listingTypes: ListingType[] = ["sale", "trade", "giveaway", "buy_request"];
+  const listingTypes: ListingType[] = ["sale", "trade", "giveaway", "buy_request", "auction"];
 
   return {
     query: first(params.q),

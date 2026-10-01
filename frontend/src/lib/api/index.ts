@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { ApiError, apiFetch, TOKEN_COOKIE } from "@/lib/api/http";
-import type { Conversation, ListingFilters, ListingWithSeller, Message, User } from "@/types";
+import type { Bid, Conversation, ListingFilters, ListingWithSeller, Message, User } from "@/types";
 
 /**
  * Data reads for Server Components. Each function calls the Express API on the server,
@@ -53,6 +53,14 @@ export async function getListings(filters: ListingFilters = {}): Promise<Listing
 
   const { listings } = await apiFetch<{ listings: ListingWithSeller[] }>(`/api/listings?${params}`);
   return listings;
+}
+
+/** An auction's bids, highest first. */
+export async function getBids(listingId: string): Promise<Bid[]> {
+  const result = await orNull(
+    apiFetch<{ bids: Bid[] }>(`/api/listings/${encodeURIComponent(listingId)}/bids`),
+  );
+  return result?.bids ?? [];
 }
 
 export async function getListingById(id: string): Promise<ListingWithSeller | null> {

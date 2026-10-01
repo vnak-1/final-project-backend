@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AuctionFields } from "@/components/forms/AuctionFields";
 import { Field, FieldInput, FieldTextarea } from "@/components/forms/Field";
 import { FieldSelect } from "@/components/forms/FieldSelect";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,8 @@ import { CATEGORIES, CONDITIONS, LISTING_TYPES } from "@/lib/constants";
 
 /** Matches the API's upload limit (backend/src/routes/uploads.js). */
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+/** Matches the API's longest auction (MAX_AUCTION_DAYS in backend/src/utils/validation.js). */
+const MAX_AUCTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Create-a-listing form. Checks the fields here for quick feedback, then sends the whole form
@@ -34,6 +37,17 @@ export function NewListingForm() {
     if (!Number.isFinite(price) || price < 0) next.price = "Enter a valid price.";
     if (description.length < 20) next.description = "Describe the item in at least 20 characters.";
     if (photo instanceof File && photo.size > MAX_PHOTO_BYTES) next.photo = "Choose a photo under 5 MB.";
+    if (listingType === "auction") {
+      // datetime-local gives the user's local time with no zone ("2026-10-04T18:00"). Converting it
+      // here, in the browser, keeps the user's time zone; the API receives an exact ISO time.
+      const endsAt = new Date(String(data.get("auctionEndsAt") ?? "")).getTime();
+      if (!Number.isFinite(endsAt) || endsAt <= Date.now() || endsAt > Date.now() + MAX_AUCTION_MS) {
+        next.auctionEndsAt = "Pick a time in the future, within 30 days.";
+      } else {
+        data.set("auctionEndsAt", new Date(endsAt).toISOString());
+      }
+      if (!(Number(data.get("minIncrement")) > 0)) next.minIncrement = "Enter an amount above 0.";
+    }
 
     setErrors(next);
     if (Object.keys(next).length > 0) return;
@@ -83,7 +97,7 @@ export function NewListingForm() {
         </Field>
         {/* A giveaway has no price, so the field is hidden and the price is sent as 0. */}
         {listingType !== "giveaway" ? (
-          <Field label="Price (USD)" error={errors.price}>
+          <Field label={listingType === "auction" ? "Starting bid (USD)" : "Price (USD)"} error={errors.price}>
             <FieldInput
               name="price"
               type="number"
@@ -101,6 +115,8 @@ export function NewListingForm() {
           <FieldSelect name="condition" defaultValue="good" options={CONDITIONS} />
         </Field>
       </div>
+
+      {listingType === "auction" ? <AuctionFields errors={errors} /> : null}
 
       <Field label="Photo (optional)" error={errors.photo}>
         <FieldInput

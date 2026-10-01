@@ -1,12 +1,13 @@
 import { ArrowLeft, MapPin } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AuctionPanel } from "@/components/listings/AuctionPanel";
 import { ListingImage } from "@/components/listings/ListingImage";
 import { ListingOwnerActions } from "@/components/listings/ListingOwnerActions";
 import { UserAvatar } from "@/components/profile/UserAvatar";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { Badge } from "@/components/ui/badge";
-import { conversationId, getCurrentUser, getListingById } from "@/lib/api";
+import { conversationId, getBids, getCurrentUser, getListingById } from "@/lib/api";
 import { CATEGORIES, conditionLabel, listingTypeLabel, statusLabel } from "@/lib/constants";
 import { formatListingPrice, formatRelativeTime } from "@/lib/utils";
 
@@ -16,6 +17,7 @@ export default async function ListingDetailPage({ params }: PageProps<"/listings
   const [listing, user] = await Promise.all([getListingById(id), getCurrentUser()]);
 
   if (!listing) notFound();
+  const bids = listing.auction ? await getBids(listing.id) : [];
 
   const category = CATEGORIES.find((item) => item.value === listing.category);
   const isOwner = user?.id === listing.seller.id;
@@ -54,6 +56,10 @@ export default async function ListingDetailPage({ params }: PageProps<"/listings
           </div>
 
           <p className="leading-relaxed text-foreground">{listing.description}</p>
+
+          {listing.auction ? (
+            <AuctionPanel listing={{ ...listing, auction: listing.auction }} bids={bids} userId={user?.id ?? null} />
+          ) : null}
 
           {isOwner ? (
             <ListingOwnerActions

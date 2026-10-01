@@ -13,9 +13,13 @@ export function formatPrice(amount: number): string {
   }).format(amount);
 }
 
-/** Price text for a listing: giveaways are free, and a trade with no price is a straight swap. */
-export function formatListingPrice(listing: Pick<Listing, "listingType" | "price">): string {
+/**
+ * Price text for a listing: giveaways are free, a trade with no price is a straight swap,
+ * and an auction shows its highest bid (or the starting bid before anyone has bid).
+ */
+export function formatListingPrice(listing: Pick<Listing, "listingType" | "price" | "auction">): string {
   if (listing.listingType === "giveaway") return "Free";
+  if (listing.auction) return formatPrice(listing.auction.highestBid ?? listing.price);
   if (listing.listingType === "trade" && listing.price === 0) return "Trade";
   return formatPrice(listing.price);
 }
