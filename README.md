@@ -9,6 +9,7 @@ buy, sell, trade, or give away items.
 | [`backend/`](backend/) | Node.js + Express REST API + PostgreSQL | Long Vathanak |
 
 Rules for AI coding agents working in this repo are in [`Agent.md`](Agent.md).
+Putting it online (Supabase, Render, Vercel, Cloudinary, Stripe, Telegram): [`DEPLOY.md`](DEPLOY.md).
 
 ## Run locally
 

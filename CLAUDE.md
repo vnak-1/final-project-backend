@@ -76,6 +76,11 @@ verified. `dara@aupp.edu.kh` is **unverified**, so its login returns 403 (useful
   end time and raise are locked (409). Every listing in the API has `auction: null | {...}`.
 - **Notifications:** `utils/notify.js` (fire-and-forget, never throws). New message (first unread
   per thread only), outbid, auction won/ended. Add new events there; Telegram can reuse it later.
+- **Optional services** (`backend/src/services/`, plain `fetch`, no packages), each off until its env
+  keys are set: Stripe Checkout **test mode only** (`routes/payments.js`; `markPaid` is idempotent and
+  marks the item sold; the webhook needs the raw body, so it is mounted before `express.json` in
+  `app.js`), Cloudinary uploads, and a Telegram bot (long polling, linked through a one-time `/start`
+  code). `notify.js` sends to Telegram as well as email. Deploy guide: `DEPLOY.md`; Render blueprint: `render.yaml`.
 - **Messaging:** there is no conversations table. A thread is all messages between two users about
   one listing (this follows the ER diagram).
 - **Uploads:** `POST /api/uploads` with raw image bytes (max 5 MB), saved to `backend/uploads/`
@@ -87,11 +92,11 @@ verified. `dara@aupp.edu.kh` is **unverified**, so its login returns 403 (useful
 ## Status and roadmap
 
 Done (week 5): auth with email verification, listings CRUD with five types (incl. auction) and statuses,
-ranked typo-tolerant search and filters, auctions/bidding, email notifications, profiles, per-listing messaging, photo
+ranked typo-tolerant search and filters, auctions/bidding, email + Telegram notifications, Stripe test payments, Cloudinary photos, profiles, per-listing messaging, photo
 uploads; frontend fully wired to the API.
 
-Next (professor's feedback, in priority order):
-1. Move the database to Supabase (only `DATABASE_URL` changes; it is still PostgreSQL)
-2. Cloudinary uploads, then deploy: Render (API), Supabase (database), Vercel (frontend, root = `frontend`)
-3. Online payment in Stripe test mode (KHQR/Bakong as the local alternative)
-4. Telegram bot notifications (reusing the notify function), real-time chat if time allows
+Built but needs the team's own accounts/keys (see `DEPLOY.md`): Supabase database, Render + Vercel
+deployment, Cloudinary photos, Stripe test payments, Telegram bot.
+
+Possible next steps: real-time chat, reviews and ratings (the `reviews` table exists), safe meetup
+spots, KHQR/Bakong as a local alternative to Stripe, and per-user notification preferences.
