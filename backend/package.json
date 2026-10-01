@@ -6,6 +6,7 @@
   "description": "UniSwap REST API (Node.js + Express + PostgreSQL)",
   "scripts": {
     "start": "node --env-file=.env src/server.js",
+    "start:prod": "node src/server.js",
     "dev": "node --watch --env-file=.env src/server.js",
     "db:setup": "node --env-file=.env scripts/db-setup.js",
     "db:seed": "node --env-file=.env scripts/db-seed.js",

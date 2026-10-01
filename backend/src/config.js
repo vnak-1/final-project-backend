@@ -21,4 +21,18 @@ export const config = {
     pass: process.env.SMTP_PASS,
     from: process.env.EMAIL_FROM ?? `UniSwap <${process.env.SMTP_USER}>`,
   },
+  // Optional services. Each one stays switched off until its keys are set (see .env.example).
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+  },
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  },
+  telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN,
+    botUsername: process.env.TELEGRAM_BOT_USERNAME,
+  },
 };

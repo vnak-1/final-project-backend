@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import express, { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { isCloudinaryConfigured, uploadImage } from "../services/cloudinary.js";
 import { HttpError } from "../utils/httpError.js";
 
 // Listing photos are saved to backend/uploads/ and served from /uploads/<file>.
@@ -29,6 +30,11 @@ uploadsRouter.post(
     const extension = EXTENSIONS[req.get("content-type")?.split(";")[0]];
     if (!extension || !Buffer.isBuffer(req.body) || req.body.length === 0) {
       throw new HttpError(400, "Send a JPEG, PNG, WebP or GIF image.");
+    }
+
+    // With Cloudinary set up, photos are hosted there; otherwise they are saved on this server.
+    if (isCloudinaryConfigured) {
+      return res.status(201).json({ url: await uploadImage(req.body, req.get("content-type").split(";")[0]) });
     }
 
     const fileName = `${randomUUID()}.${extension}`;

@@ -1,10 +1,11 @@
 import { config } from "../config.js";
 import { query } from "../db/pool.js";
+import { isTelegramConfigured, sendTelegramMessage } from "../services/telegram.js";
 import { escapeHtml, isEmailConfigured, sendEmail } from "./email.js";
 
-// Email notifications. Every function here is "fire and forget": routes call it without `await`,
-// and it never throws, so a mail problem can never break sending a message or placing a bid.
-// A Telegram bot can be added later by sending the same { to, subject, text, link } there too.
+// Notifications by email, and by Telegram for users who connected it in Settings.
+// Every function here is "fire and forget": routes call it without `await`, and it never throws,
+// so a mail or Telegram problem can never break sending a message, placing a bid or paying.
 
 const PREVIEW_LENGTH = 200;
 
@@ -29,26 +30,43 @@ function preview(text) {
 }
 
 async function findUser(id) {
-  const { rows } = await query("SELECT name, email FROM users WHERE id = $1", [id]);
+  const { rows } = await query("SELECT name, email, telegram_chat_id FROM users WHERE id = $1", [id]);
   return rows[0] ?? null;
 }
 
-/** Sends one notification email; `lines` are plain text (escaped for the HTML version). */
+/**
+ * Sends one notification to a user (a row from findUser) by email, and by Telegram if they
+ * connected it. `lines` are plain text: escaped for the email's HTML, sent as-is to Telegram.
+ */
 async function deliver({ to, subject, lines, link, linkLabel }) {
+  await Promise.all([emailTo(to, { subject, lines, link, linkLabel }), telegramTo(to, { subject, lines, link })]);
+}
+
+async function emailTo(user, { subject, lines, link, linkLabel }) {
   if (!isEmailConfigured) {
-    console.log(`[notify] email not configured, skipped "${subject}" to ${to}`);
+    console.log(`[notify] email not configured, skipped "${subject}" to ${user.email}`);
     return;
   }
   try {
     await sendEmail({
-      to,
+      to: user.email,
       subject,
       text: `${lines.join("\n\n")}\n\n${linkLabel}: ${link}`,
       html: `${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("\n")}
 <p><a href="${link}">${escapeHtml(linkLabel)}</a></p>`,
     });
   } catch (error) {
-    console.error(`[notify] could not email ${to} ("${subject}"): ${error.response ?? error.message}`);
+    console.error(`[notify] could not email ${user.email} ("${subject}"): ${error.response ?? error.message}`);
+  }
+}
+
+async function telegramTo(user, { subject, lines, link }) {
+  if (!isTelegramConfigured || !user.telegram_chat_id) return;
+  try {
+    // The first line is the "Hi <name>," greeting, which reads oddly in a chat, so it is dropped.
+    await sendTelegramMessage(user.telegram_chat_id, [subject, ...lines.slice(1), link].join("\n\n"));
+  } catch (error) {
+    console.error(`[notify] could not send Telegram message ("${subject}"): ${error.message}`);
   }
 }
 
@@ -73,7 +91,7 @@ export function notifyNewMessage({ listingId, senderId, receiverId, body }) {
     const [sender, receiver] = await Promise.all([findUser(senderId), findUser(receiverId)]);
     if (!sender || !receiver) return;
     await deliver({
-      to: receiver.email,
+      to: receiver,
       subject: `New message from ${sender.name} about "${rows[0].title}"`,
       lines: [`Hi ${receiver.name},`, `${sender.name} wrote:`, `"${preview(body)}"`],
       link: threadLink(listingId, senderId),
@@ -91,7 +109,7 @@ export function notifyOutbid({ listingId, previousBidderId, amount }) {
     ]);
     if (!bidder || !listing) return;
     await deliver({
-      to: bidder.email,
+      to: bidder,
       subject: `You've been outbid on "${listing.title}"`,
       lines: [`Hi ${bidder.name},`, `Someone bid ${money(amount)} on "${listing.title}", so you are no longer the highest bidder.`],
       link: appLink(`/listings/${listingId}`),
@@ -107,7 +125,7 @@ export function notifyAuctionClosed({ listing_id: listingId, title, seller_id: s
     if (!seller || !winner) return;
     await Promise.all([
       deliver({
-        to: winner.email,
+        to: winner,
         subject: `You won "${title}" for ${money(amount)}`,
         lines: [`Hi ${winner.name},`, `Your bid of ${money(amount)} won the auction for "${title}".`,
           `Message ${seller.name} to arrange a time and place to meet on campus.`],
@@ -115,12 +133,41 @@ export function notifyAuctionClosed({ listing_id: listingId, title, seller_id: s
         linkLabel: `Message ${seller.name}`,
       }),
       deliver({
-        to: seller.email,
+        to: seller,
         subject: `Your auction "${title}" ended at ${money(amount)}`,
         lines: [`Hi ${seller.name},`, `${winner.name} won "${title}" with a bid of ${money(amount)}.`,
           "The listing is now reserved for them. Message them to arrange the handover."],
         link: threadLink(listingId, winnerId),
         linkLabel: `Message ${winner.name}`,
+      }),
+    ]);
+  });
+}
+
+/** A Stripe payment went through: tell the seller to hand the item over, and give the buyer a receipt. */
+export function notifyPaid({ listing_id: listingId, buyer_id: buyerId, amount }) {
+  inBackground(async () => {
+    const { rows } = await query("SELECT title, user_id FROM listings WHERE id = $1", [listingId]);
+    if (!rows[0]) return;
+    const { title, user_id: sellerId } = rows[0];
+    const [buyer, seller] = await Promise.all([findUser(buyerId), findUser(sellerId)]);
+    if (!buyer || !seller) return;
+    await Promise.all([
+      deliver({
+        to: seller,
+        subject: `${buyer.name} paid ${money(amount)} for "${title}"`,
+        lines: [`Hi ${seller.name},`, `${buyer.name} paid ${money(amount)} online for "${title}". It is now marked sold.`,
+          "Message them to arrange the handover on campus."],
+        link: threadLink(listingId, buyerId),
+        linkLabel: `Message ${buyer.name}`,
+      }),
+      deliver({
+        to: buyer,
+        subject: `Payment received: "${title}"`,
+        lines: [`Hi ${buyer.name},`, `Your payment of ${money(amount)} for "${title}" went through.`,
+          `Message ${seller.name} to arrange the handover on campus.`],
+        link: threadLink(listingId, sellerId),
+        linkLabel: `Message ${seller.name}`,
       }),
     ]);
   });

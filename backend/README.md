@@ -140,6 +140,41 @@ Notifications never block or break the request that caused them: if email is not
 are skipped with a log line, and send failures are logged, not returned to the user. User-written
 text (messages, names, titles) is HTML-escaped in the email.
 
+### Payments, photos and Telegram (optional services)
+
+Each one is switched off until its keys are in `.env` (see `.env.example`). Setup steps are in
+[`../DEPLOY.md`](../DEPLOY.md). None of them needs an npm package: `src/services/` calls each
+service's web API with `fetch`.
+
+- **Stripe Checkout, test mode only** (`services/stripe.js`, `routes/payments.js`). An item for sale,
+  or an auction you won, can be paid by card on Stripe's own page. The amount comes from
+  `utils/payments.js`. When the buyer returns, `/confirm` asks Stripe whether they paid. The
+  webhook (with a verified signature) covers buyers who close the tab. Both call `markPaid`, which
+  only acts once, marks the listing sold and notifies both people. While one buyer is checking out
+  (30 minutes), others get 409. Live keys are refused.
+- **Cloudinary** (`services/cloudinary.js`): signed uploads. Without it, photos go to `backend/uploads/`.
+- **Telegram** (`services/telegram.js`, `routes/telegram.js`, `utils/telegramBot.js`). Settings gives
+  a one-time `t.me/<bot>?start=<code>` link. The bot (long polling, so no public URL is needed)
+  links the chat. After that, every notification goes to Telegram as well as email.
+
+**Upgrading a database created before payments and Telegram?** Run this once. It keeps your data and is safe to re-run:
+
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_link_code TEXT UNIQUE;
+CREATE TABLE IF NOT EXISTS payments (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  listing_id        UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  buyer_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount            NUMERIC(10, 2) NOT NULL CHECK (amount > 0),
+  stripe_session_id TEXT NOT NULL UNIQUE,
+  status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid')),
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  paid_at           TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS payments_listing_idx ON payments (listing_id, status);
+```
+
 ## API
 
 Send JSON. Routes marked 🔒 need the header `Authorization: Bearer <token>` (the token comes from register or login).
@@ -159,6 +194,13 @@ Send JSON. Routes marked 🔒 need the header `Authorization: Bearer <token>` (t
 | DELETE 🔒 | `/api/listings/:id` | Owner only |
 | GET | `/api/listings/:id/bids` | An auction's bids, highest first, with bidder name |
 | POST 🔒 | `/api/listings/:id/bids` | `{ amount }`. Place a bid (see Auctions above) |
+| GET | `/api/payments/config` | `{ enabled }`: whether card payments are switched on |
+| POST 🔒 | `/api/payments/checkout` | `{ listingId }` → `{ url }` of Stripe's payment page |
+| POST 🔒 | `/api/payments/confirm` | `{ sessionId }` → `{ status: "paid" \| "pending" }`, checked with Stripe |
+| POST | `/api/payments/webhook` | Called by Stripe only, with a signature check |
+| GET 🔒 | `/api/users/me/telegram` | `{ enabled, connected }` |
+| POST 🔒 | `/api/users/me/telegram` | `{ link }`: one-time link that opens the bot |
+| DELETE 🔒 | `/api/users/me/telegram` | Disconnect Telegram |
 | GET | `/api/users/:id` | Public profile (email hidden) |
 | GET | `/api/users/:id/listings` | All listings by a user |
 | PATCH 🔒 | `/api/users/me` | `{ name?, major?, graduationYear?, bio?, avatarUrl? }` |

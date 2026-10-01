@@ -3,7 +3,7 @@
 -- Extra user fields (major, bio, ...) match the frontend's User type in frontend/src/types.
 -- WARNING: re-running this drops all data. Development only.
 
-DROP TABLE IF EXISTS bids, reviews, messages, listings, users CASCADE;
+DROP TABLE IF EXISTS payments, bids, reviews, messages, listings, users CASCADE;
 
 -- pg_trgm ships with PostgreSQL (and is available on Supabase). Search uses it to tolerate typos.
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -19,6 +19,9 @@ CREATE TABLE users (
   major              TEXT NOT NULL DEFAULT '',
   graduation_year    INTEGER,
   bio                TEXT NOT NULL DEFAULT '',
+  -- Telegram notifications: the chat the bot messages, and a one-time code used to link it.
+  telegram_chat_id   TEXT,
+  telegram_link_code TEXT UNIQUE,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -68,6 +71,21 @@ CREATE TABLE bids (
 );
 
 CREATE INDEX bids_listing_idx ON bids (listing_id, amount DESC);
+
+-- Card payments made through Stripe Checkout (test mode). A row is created when checkout starts
+-- ("pending") and becomes "paid" once Stripe confirms; the listing is then marked sold.
+CREATE TABLE payments (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  listing_id        UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  buyer_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount            NUMERIC(10, 2) NOT NULL CHECK (amount > 0),
+  stripe_session_id TEXT NOT NULL UNIQUE,
+  status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid')),
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  paid_at           TIMESTAMPTZ
+);
+
+CREATE INDEX payments_listing_idx ON payments (listing_id, status);
 
 CREATE TABLE messages (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
