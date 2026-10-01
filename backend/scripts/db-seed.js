@@ -48,5 +48,16 @@ await pool.query(
   [listingIds[1], ids[1], ids[0]],
 );
 
-console.log(`Seeded ${ids.length} users, ${listingIds.length} listings, 2 messages.`);
+// An auction by Chanrithorn that ends in 3 days, with one opening bid from Sokunth.
+const { rows: [auction] } = await pool.query(
+  `INSERT INTO listings (user_id, title, description, category, condition, listing_type, price,
+                         image_urls, auction_ends_at, min_increment)
+   VALUES ($1, 'Study desk (auction)', 'Demo auction: sturdy desk, highest bid wins.', 'furniture',
+           'good', 'auction', 20, $2, now() + interval '3 days', 2)
+   RETURNING id`,
+  [ids[1], ["/listings/desk.svg"]],
+);
+await pool.query("INSERT INTO bids (listing_id, bidder_id, amount) VALUES ($1, $2, 22)", [auction.id, ids[0]]);
+
+console.log(`Seeded ${ids.length} users, ${listingIds.length + 1} listings (1 auction), 2 messages, 1 bid.`);
 await pool.end();

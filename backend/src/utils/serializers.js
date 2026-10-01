@@ -32,12 +32,34 @@ export function toListing(row) {
     sellerId: row.user_id,
     status: row.status,
     createdAt: row.created_at,
+    auction: row.listing_type === "auction" ? toAuction(row) : null,
     seller: {
       id: row.user_id,
       name: row.seller_name,
       avatarUrl: row.seller_avatar_url,
       isVerified: row.seller_is_verified,
     },
+  };
+}
+
+/** Auction details for an auction listing row (see LISTING_SELECT). */
+function toAuction(row) {
+  return {
+    endsAt: row.auction_ends_at,
+    ended: row.auction_ended,
+    minIncrement: Number(row.min_increment),
+    highestBid: row.highest_bid === null ? null : Number(row.highest_bid),
+    leadingBidderId: row.leading_bidder_id,
+    bidCount: row.bid_count,
+  };
+}
+
+export function toBid(row) {
+  return {
+    id: row.id,
+    amount: Number(row.amount),
+    createdAt: row.created_at,
+    bidder: { id: row.bidder_id, name: row.bidder_name, isVerified: row.bidder_is_verified },
   };
 }
 

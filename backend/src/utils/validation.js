@@ -3,7 +3,10 @@
 
 export const CATEGORIES = ["textbooks", "electronics", "furniture", "clothing", "bikes", "other"];
 export const CONDITIONS = ["new", "like_new", "good", "fair"];
-export const LISTING_TYPES = ["sale", "buy_request", "trade", "giveaway"];
+export const LISTING_TYPES = ["sale", "buy_request", "trade", "giveaway", "auction"];
+
+/** Longest an auction may run. */
+export const MAX_AUCTION_DAYS = 30;
 export const STATUSES = ["active", "reserved", "sold", "traded"];
 
 const CAMPUS_EMAIL = /^[^\s@]+@([a-z0-9-]+\.)+edu\.kh$/i;
@@ -65,7 +68,31 @@ export function validateListing(body, { partial = false } = {}) {
   if (has("status") && !STATUSES.includes(body.status)) {
     errors.status = `Status must be one of: ${STATUSES.join(", ")}.`;
   }
+
+  // Auctions: an end time in the future (at most MAX_AUCTION_DAYS away) and a positive minimum raise.
+  if (has("auctionEndsAt") && !isValidAuctionEnd(body.auctionEndsAt)) {
+    errors.auctionEndsAt = `Auction end must be a future date within ${MAX_AUCTION_DAYS} days.`;
+  }
+  if (!partial && body.listingType === "auction" && !has("auctionEndsAt")) {
+    errors.auctionEndsAt = "An auction needs an end date and time.";
+  }
+  if (has("minIncrement") && !(isMoney(body.minIncrement) && body.minIncrement > 0)) {
+    errors.minIncrement = "Minimum raise must be a number above 0.";
+  }
   return errors;
+}
+
+function isValidAuctionEnd(value, now = Date.now()) {
+  const time = typeof value === "string" ? Date.parse(value) : NaN;
+  return Number.isFinite(time) && time > now && time <= now + MAX_AUCTION_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * The smallest bid the API will accept: the starting price for the first bid,
+ * then the current highest bid plus the minimum raise.
+ */
+export function minimumNextBid({ startingPrice, highestBid, minIncrement }) {
+  return highestBid === null ? startingPrice : highestBid + minIncrement;
 }
 
 function toNumber(value) {

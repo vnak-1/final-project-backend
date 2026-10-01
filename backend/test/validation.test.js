@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   isCampusEmail,
+  minimumNextBid,
   parseListingFilters,
   validateListing,
   validateRegistration,
@@ -53,4 +54,20 @@ test("browse filters ignore unknown values and default to active listings", () =
   assert.equal(filters.maxPrice, undefined);
   assert.equal(filters.query, "bike");
   assert.equal(filters.status, "active");
+});
+
+test("an auction needs a future end time within 30 days and a positive minimum raise", () => {
+  const base = { title: "Desk", category: "furniture", condition: "good", listingType: "auction" };
+  const inDays = (days) => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+  assert.deepEqual(validateListing({ ...base, auctionEndsAt: inDays(3), minIncrement: 2 }), {});
+  assert.ok(validateListing(base).auctionEndsAt, "missing end time");
+  assert.ok(validateListing({ ...base, auctionEndsAt: inDays(-1) }).auctionEndsAt, "in the past");
+  assert.ok(validateListing({ ...base, auctionEndsAt: inDays(31) }).auctionEndsAt, "too far ahead");
+  assert.ok(validateListing({ ...base, auctionEndsAt: "soon" }).auctionEndsAt, "not a date");
+  assert.ok(validateListing({ minIncrement: 0 }, { partial: true }).minIncrement);
+});
+
+test("the first bid must reach the starting price; later bids must beat the highest by the raise", () => {
+  assert.equal(minimumNextBid({ startingPrice: 20, highestBid: null, minIncrement: 2 }), 20);
+  assert.equal(minimumNextBid({ startingPrice: 20, highestBid: 22, minIncrement: 2 }), 24);
 });

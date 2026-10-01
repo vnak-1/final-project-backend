@@ -2,11 +2,21 @@ import { query } from "./pool.js";
 
 // Every listing is returned with the seller's public info, so the UI can render
 // a card without a second request (matches ListingWithSeller in the frontend).
+// Auction listings also get their highest bid, its bidder, the bid count and whether bidding has ended.
 export const LISTING_SELECT = `
   SELECT l.*, u.name AS seller_name, u.avatar_url AS seller_avatar_url,
-         u.is_verified AS seller_is_verified
+         u.is_verified AS seller_is_verified,
+         l.auction_ends_at <= now() AS auction_ended,
+         top.amount AS highest_bid, top.bidder_id AS leading_bidder_id,
+         (SELECT COUNT(*)::int FROM bids b WHERE b.listing_id = l.id) AS bid_count
   FROM listings l
-  JOIN users u ON u.id = l.user_id`;
+  JOIN users u ON u.id = l.user_id
+  LEFT JOIN LATERAL (
+    SELECT amount, bidder_id FROM bids b
+    WHERE b.listing_id = l.id
+    ORDER BY amount DESC, created_at ASC  -- on a tie, the earlier bid wins
+    LIMIT 1
+  ) top ON true`;
 
 // How close a misspelled word must be to a title word to count as a match (0 to 1).
 // 0.5 lets "frige" find "fridge" (0.50) and "calculs" find "Calculus" (0.75), while unrelated

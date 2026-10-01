@@ -9,3 +9,22 @@ export const pool = new pg.Pool({ connectionString: config.databaseUrl });
 export function query(text, params = []) {
   return pool.query(text, params);
 }
+
+/**
+ * Runs `work(client)` inside one database transaction: either every query in it is saved, or
+ * (if anything throws) none are. Use client.query inside, not query(), so all calls share it.
+ */
+export async function withTransaction(work) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await work(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}

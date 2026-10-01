@@ -55,7 +55,7 @@ the API (`utils/validation.js`) and in the database (`CHECK` constraints):
 
 - **category:** textbooks, electronics, furniture, clothing, bikes, other
 - **condition:** new, like_new, good, fair
-- **listing type:** sale, buy_request, trade, giveaway
+- **listing type:** sale, buy_request, trade, giveaway, auction
 - **status:** active, reserved, sold, traded
 
 ### Search
@@ -84,6 +84,47 @@ ALTER TABLE listings ADD COLUMN IF NOT EXISTS search_vector TSVECTOR GENERATED A
 CREATE INDEX IF NOT EXISTS listings_search_idx ON listings USING GIN (search_vector);
 ```
 
+### Auctions
+
+A listing with `listingType: "auction"` takes bids until `auctionEndsAt` (at most 30 days away).
+Its `price` is the starting bid.
+
+- The first bid must be at least the starting price. Every later bid must beat the highest by
+  `minIncrement` (default $1).
+- The seller cannot bid. The current leader cannot bid again until someone outbids them.
+- Bids lock the listing row (`SELECT ... FOR UPDATE` in a transaction), so two bids placed at the same
+  moment are handled one after the other, never both "winning".
+- After the first bid, the seller cannot change the type, price, end time or minimum raise.
+- Once a minute, `closeEndedAuctions()` (`src/db/auctions.js`, run from `server.js`) marks each ended
+  auction that has bids as `reserved`. The highest bidder wins, and on a tie the earlier bid wins.
+  The buyer and seller then arrange the handover in chat. An auction with no bids stays `active`,
+  so the seller can extend it or change its type.
+- Every listing in API responses has an `auction` field: `null`, or
+  `{ endsAt, ended, minIncrement, highestBid, leadingBidderId, bidCount }`.
+
+**Upgrading a database created before auctions?** Run this once in `psql` or the Supabase SQL editor.
+It keeps your data, and running it twice is safe:
+
+```sql
+ALTER TABLE listings DROP CONSTRAINT IF EXISTS listings_listing_type_check;
+ALTER TABLE listings ADD CONSTRAINT listings_listing_type_check
+  CHECK (listing_type IN ('sale', 'buy_request', 'trade', 'giveaway', 'auction'));
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS auction_ends_at TIMESTAMPTZ;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS min_increment NUMERIC(10, 2) NOT NULL DEFAULT 1
+  CHECK (min_increment > 0);
+ALTER TABLE listings DROP CONSTRAINT IF EXISTS listings_auction_needs_end;
+ALTER TABLE listings ADD CONSTRAINT listings_auction_needs_end
+  CHECK (listing_type <> 'auction' OR auction_ends_at IS NOT NULL);
+CREATE TABLE IF NOT EXISTS bids (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  listing_id UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  bidder_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount     NUMERIC(10, 2) NOT NULL CHECK (amount > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS bids_listing_idx ON bids (listing_id, amount DESC);
+```
+
 ## API
 
 Send JSON. Routes marked 🔒 need the header `Authorization: Bearer <token>` (the token comes from register or login).
@@ -98,9 +139,11 @@ Send JSON. Routes marked 🔒 need the header `Authorization: Bearer <token>` (t
 | GET 🔒 | `/api/auth/me` | The logged-in user |
 | GET | `/api/listings` | Browse and search (ranked, typo tolerant; see Search above). Query: `query`, `category`, `condition`, `type`, `minPrice`, `maxPrice`, `status` (default `active`) |
 | GET | `/api/listings/:id` | One listing, with seller info |
-| POST 🔒 | `/api/listings` | `{ title, category, condition, description?, listingType?, price?, cashTopup?, imageUrls? }` |
+| POST 🔒 | `/api/listings` | `{ title, category, condition, description?, listingType?, price?, cashTopup?, imageUrls?, auctionEndsAt?, minIncrement? }`. `auctionEndsAt` (ISO date) is required for an auction |
 | PATCH 🔒 | `/api/listings/:id` | Owner only. Any subset of fields, e.g. `{ "status": "sold" }` |
 | DELETE 🔒 | `/api/listings/:id` | Owner only |
+| GET | `/api/listings/:id/bids` | An auction's bids, highest first, with bidder name |
+| POST 🔒 | `/api/listings/:id/bids` | `{ amount }`. Place a bid (see Auctions above) |
 | GET | `/api/users/:id` | Public profile (email hidden) |
 | GET | `/api/users/:id/listings` | All listings by a user |
 | PATCH 🔒 | `/api/users/me` | `{ name?, major?, graduationYear?, bio?, avatarUrl? }` |

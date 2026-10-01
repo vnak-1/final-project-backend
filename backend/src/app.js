@@ -3,6 +3,7 @@ import { query } from "./db/pool.js";
 import { cors } from "./middleware/cors.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { authRouter } from "./routes/auth.js";
+import { bidsRouter } from "./routes/bids.js";
 import { listingsRouter } from "./routes/listings.js";
 import { messagesRouter } from "./routes/messages.js";
 import { UPLOAD_DIR, uploadsRouter } from "./routes/uploads.js";
@@ -21,6 +22,7 @@ app.get("/api/health", async (req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/listings/:id/bids", bidsRouter);
 app.use("/api/listings", listingsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/messages", messagesRouter);
