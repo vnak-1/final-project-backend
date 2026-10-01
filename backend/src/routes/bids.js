@@ -2,6 +2,7 @@ import { Router } from "express";
 import { query, withTransaction } from "../db/pool.js";
 import { requireAuth } from "../middleware/auth.js";
 import { HttpError } from "../utils/httpError.js";
+import { notifyOutbid } from "../utils/notify.js";
 import { toBid } from "../utils/serializers.js";
 import { minimumNextBid } from "../utils/validation.js";
 
@@ -61,8 +62,13 @@ bidsRouter.post("/", requireAuth, async (req, res) => {
       "INSERT INTO bids (listing_id, bidder_id, amount) VALUES ($1, $2, $3) RETURNING *",
       [req.params.id, req.userId, amount],
     );
-    return inserted.rows[0];
+    return { ...inserted.rows[0], previousBidderId: top?.bidder_id ?? null };
   });
+
+  // Only after the transaction is saved: tell the person who just lost the lead.
+  if (bid.previousBidderId) {
+    notifyOutbid({ listingId: req.params.id, previousBidderId: bid.previousBidderId, amount });
+  }
 
   const { rows } = await query("SELECT name, is_verified FROM users WHERE id = $1", [req.userId]);
   res.status(201).json({

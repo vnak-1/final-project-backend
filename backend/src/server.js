@@ -1,6 +1,7 @@
 import { app } from "./app.js";
 import { config } from "./config.js";
 import { closeEndedAuctions } from "./db/auctions.js";
+import { notifyAuctionClosed } from "./utils/notify.js";
 
 app.listen(config.port, () => {
   console.log(`UniSwap API running on http://localhost:${config.port}`);
@@ -14,6 +15,7 @@ async function runAuctionCheck() {
   try {
     for (const closed of await closeEndedAuctions()) {
       console.log(`[auction] "${closed.title}" won by ${closed.winner_id} for $${closed.amount}`);
+      notifyAuctionClosed(closed);
     }
   } catch (error) {
     console.error("[auction] could not close ended auctions:", error.message);

@@ -3,6 +3,7 @@ import { findListingById } from "../db/listings.js";
 import { query } from "../db/pool.js";
 import { requireAuth } from "../middleware/auth.js";
 import { HttpError } from "../utils/httpError.js";
+import { notifyNewMessage } from "../utils/notify.js";
 import { toMessage } from "../utils/serializers.js";
 
 // Messaging follows the ER diagram: each message has a listing, a sender and a receiver.
@@ -71,6 +72,7 @@ messagesRouter.post("/", async (req, res) => {
      VALUES ($1, $2, $3, $4) RETURNING *`,
     [listingId, req.userId, receiverId, body.trim()],
   );
+  notifyNewMessage({ listingId, senderId: req.userId, receiverId, body: body.trim() });
   res.status(201).json({ message: toMessage(rows[0]) });
 });
 

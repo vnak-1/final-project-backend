@@ -125,6 +125,21 @@ CREATE TABLE IF NOT EXISTS bids (
 CREATE INDEX IF NOT EXISTS bids_listing_idx ON bids (listing_id, amount DESC);
 ```
 
+### Email notifications
+
+`src/utils/notify.js` emails people when something happens (using the same SMTP settings as the
+verification email):
+
+| Event | Who gets it | Link in the email |
+|---|---|---|
+| New chat message | The receiver. Only the first unread message in a thread emails; reading the thread re-arms it | The chat thread |
+| Outbid | The person who just lost the highest bid | The auction |
+| Auction ended with bids | The winner ("You won…") and the seller ("ended at $…") | Their chat with each other |
+
+Notifications never block or break the request that caused them: if email is not configured they
+are skipped with a log line, and send failures are logged, not returned to the user. User-written
+text (messages, names, titles) is HTML-escaped in the email.
+
 ## API
 
 Send JSON. Routes marked 🔒 need the header `Authorization: Bearer <token>` (the token comes from register or login).

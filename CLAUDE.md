@@ -74,6 +74,8 @@ verified. `dara@aupp.edu.kh` is **unverified**, so its login returns 403 (useful
   `server.js` runs `closeEndedAuctions()` every minute: an ended auction with bids becomes
   `reserved` (highest bid wins; on a tie, the earlier bid). After the first bid, type, price,
   end time and raise are locked (409). Every listing in the API has `auction: null | {...}`.
+- **Notifications:** `utils/notify.js` (fire-and-forget, never throws). New message (first unread
+  per thread only), outbid, auction won/ended. Add new events there; Telegram can reuse it later.
 - **Messaging:** there is no conversations table. A thread is all messages between two users about
   one listing (this follows the ER diagram).
 - **Uploads:** `POST /api/uploads` with raw image bytes (max 5 MB), saved to `backend/uploads/`
@@ -85,13 +87,11 @@ verified. `dara@aupp.edu.kh` is **unverified**, so its login returns 403 (useful
 ## Status and roadmap
 
 Done (week 5): auth with email verification, listings CRUD with five types (incl. auction) and statuses,
-ranked typo-tolerant search and filters, auctions/bidding, profiles, per-listing messaging, photo
+ranked typo-tolerant search and filters, auctions/bidding, email notifications, profiles, per-listing messaging, photo
 uploads; frontend fully wired to the API.
 
 Next (professor's feedback, in priority order):
 1. Move the database to Supabase (only `DATABASE_URL` changes; it is still PostgreSQL)
-2. Email notifications (new message, outbid, auction won, sold) through one shared notify function;
-   hook "auction won" into the loop in `server.js` that logs closed auctions
-3. Cloudinary uploads, then deploy: Render (API), Supabase (database), Vercel (frontend, root = `frontend`)
-4. Online payment in Stripe test mode (KHQR/Bakong as the local alternative)
-5. Telegram bot notifications (reusing the notify function), real-time chat if time allows
+2. Cloudinary uploads, then deploy: Render (API), Supabase (database), Vercel (frontend, root = `frontend`)
+3. Online payment in Stripe test mode (KHQR/Bakong as the local alternative)
+4. Telegram bot notifications (reusing the notify function), real-time chat if time allows

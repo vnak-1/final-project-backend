@@ -26,7 +26,7 @@ export async function sendEmail({ to, subject, text, html }) {
 }
 
 // Names are typed by users, so they are escaped before going into HTML.
-function escapeHtml(value) {
+export function escapeHtml(value) {
   return value.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
 }
 
