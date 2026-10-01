@@ -55,6 +55,25 @@ export async function getListings(filters: ListingFilters = {}): Promise<Listing
   return listings;
 }
 
+/** Whether card payments (Stripe test mode) are switched on in the API. */
+export async function getPaymentsEnabled(): Promise<boolean> {
+  return (await apiFetch<{ enabled: boolean }>("/api/payments/config")).enabled;
+}
+
+/**
+ * Called when a buyer returns from Stripe with ?session_id=. The API asks Stripe itself whether
+ * the payment went through, so a hand-typed URL cannot mark anything paid.
+ */
+export async function confirmPayment(sessionId: string): Promise<"paid" | "pending" | null> {
+  const result = await orNull(
+    apiFetch<{ status: "paid" | "pending" }>("/api/payments/confirm", {
+      method: "POST",
+      body: JSON.stringify({ sessionId }),
+    }),
+  );
+  return result?.status ?? null;
+}
+
 /** An auction's bids, highest first. */
 export async function getBids(listingId: string): Promise<Bid[]> {
   const result = await orNull(

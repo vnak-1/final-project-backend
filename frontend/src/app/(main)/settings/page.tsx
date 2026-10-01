@@ -4,13 +4,7 @@ import { useState } from "react";
 import { Field, FieldInput, FieldTextarea } from "@/components/forms/Field";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { TelegramSettings } from "@/components/profile/TelegramSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateProfile } from "@/lib/api/actions";
 
@@ -18,8 +12,8 @@ import { updateProfile } from "@/lib/api/actions";
  * Account settings.
  *
  * Name and bio are saved to the API. Email cannot be changed, since it is the campus
- * identity the account was verified with. Notification preferences have no server
- * route yet, so they stay local to this page.
+ * identity the account was verified with. Notifications: email is always on, and
+ * Telegram can be connected (see TelegramSettings).
  */
 export function SettingsForm() {
   const { user, signOut, setUser } = useAuth();
@@ -84,24 +78,8 @@ export function SettingsForm() {
         <CardHeader>
           <CardTitle>Notifications</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">Email frequency</span>
-            <Select name="emailFrequency" defaultValue="daily">
-              <SelectTrigger className="w-full" aria-label="Email frequency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="instant">Instantly</SelectItem>
-                <SelectItem value="daily">Daily digest</SelectItem>
-                <SelectItem value="off">No email</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="messages" defaultChecked className="size-4" />
-            Notify me about new messages
-          </label>
+        <CardContent>
+          <TelegramSettings />
         </CardContent>
       </Card>
 

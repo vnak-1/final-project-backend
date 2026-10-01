@@ -174,6 +174,48 @@ export async function placeBid(listingId: string, amount: number): Promise<Actio
   return {};
 }
 
+/** Starts a Stripe Checkout (test mode) for a listing. Returns the Stripe page to send the buyer to. */
+export async function startCheckout(listingId: string): Promise<ActionResult & { url?: string }> {
+  try {
+    const { url } = await apiFetch<{ url: string }>("/api/payments/checkout", {
+      method: "POST",
+      body: JSON.stringify({ listingId }),
+    });
+    return { url };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+/** Whether the API has a Telegram bot set up, and whether this account is linked to it. */
+export async function getTelegramStatus(): Promise<{ enabled: boolean; connected: boolean }> {
+  try {
+    return await apiFetch<{ enabled: boolean; connected: boolean }>("/api/users/me/telegram");
+  } catch (error) {
+    console.error(error);
+    return { enabled: false, connected: false };
+  }
+}
+
+/** A one-time t.me link; pressing Start in Telegram links the chat to this account. */
+export async function connectTelegram(): Promise<ActionResult & { link?: string }> {
+  try {
+    const { link } = await apiFetch<{ link: string }>("/api/users/me/telegram", { method: "POST" });
+    return { link };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+export async function disconnectTelegram(): Promise<ActionResult> {
+  try {
+    await apiFetch("/api/users/me/telegram", { method: "DELETE" });
+    return {};
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
 export async function sendMessage(listingId: string, receiverId: string, body: string): Promise<ActionResult> {
   try {
     await apiFetch("/api/messages", {

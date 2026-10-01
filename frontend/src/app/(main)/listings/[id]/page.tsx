@@ -4,23 +4,40 @@ import { notFound } from "next/navigation";
 import { AuctionPanel } from "@/components/listings/AuctionPanel";
 import { ListingImage } from "@/components/listings/ListingImage";
 import { ListingOwnerActions } from "@/components/listings/ListingOwnerActions";
+import { PayButton } from "@/components/listings/PayButton";
 import { UserAvatar } from "@/components/profile/UserAvatar";
 import { VerifiedBadge } from "@/components/profile/VerifiedBadge";
 import { Badge } from "@/components/ui/badge";
-import { conversationId, getBids, getCurrentUser, getListingById } from "@/lib/api";
+import {
+  confirmPayment,
+  conversationId,
+  getBids,
+  getCurrentUser,
+  getListingById,
+  getPaymentsEnabled,
+} from "@/lib/api";
 import { CATEGORIES, conditionLabel, listingTypeLabel, statusLabel } from "@/lib/constants";
 import { formatListingPrice, formatRelativeTime } from "@/lib/utils";
 
 /** Detail view for a single listing. */
-export default async function ListingDetailPage({ params }: PageProps<"/listings/[id]">) {
+export default async function ListingDetailPage({ params, searchParams }: PageProps<"/listings/[id]">) {
   const { id } = await params;
-  const [listing, user] = await Promise.all([getListingById(id), getCurrentUser()]);
+  const { session_id: sessionId } = await searchParams;
+  const user = await getCurrentUser();
+  // Back from Stripe: confirm first, so the listing below already shows as sold.
+  const payment = user && typeof sessionId === "string" ? await confirmPayment(sessionId) : null;
+  const [listing, paymentsEnabled] = await Promise.all([getListingById(id), getPaymentsEnabled()]);
 
   if (!listing) notFound();
   const bids = listing.auction ? await getBids(listing.id) : [];
 
   const category = CATEGORIES.find((item) => item.value === listing.category);
   const isOwner = user?.id === listing.seller.id;
+  // Mirrors the API's rule (backend/src/utils/payments.js): an item for sale, or an auction you won.
+  const canPay = paymentsEnabled && user !== null && !isOwner && (
+    (listing.listingType === "sale" && listing.status === "active" && listing.price > 0)
+    || (listing.auction !== null && listing.status === "reserved" && listing.auction.leadingBidderId === user.id)
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -31,6 +48,14 @@ export default async function ListingDetailPage({ params }: PageProps<"/listings
         <ArrowLeft aria-hidden="true" className="size-4" />
         Back to browse
       </Link>
+
+      {payment ? (
+        <p role="status" className="light-surface rounded-xl border border-border bg-card p-3 text-sm font-medium text-foreground">
+          {payment === "paid"
+            ? "Payment received. The item is yours: message the seller to arrange the handover."
+            : "Your payment is still processing. Refresh this page in a moment."}
+        </p>
+      ) : null}
 
       <div className="grid gap-6 md:grid-cols-2">
         <ListingImage
@@ -60,6 +85,8 @@ export default async function ListingDetailPage({ params }: PageProps<"/listings
           {listing.auction ? (
             <AuctionPanel listing={{ ...listing, auction: listing.auction }} bids={bids} userId={user?.id ?? null} />
           ) : null}
+
+          {canPay ? <PayButton listingId={listing.id} priceLabel={formatListingPrice(listing)} /> : null}
 
           {isOwner ? (
             <ListingOwnerActions
