@@ -1,0 +1,57 @@
+import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
+import { test } from "node:test";
+
+// These modules load config.js, which requires these. No network or database is used.
+process.env.DATABASE_URL ??= "postgres://unused";
+process.env.JWT_SECRET ??= "unused";
+const { signParams } = await import("../src/services/cloudinary.js");
+const { isValidWebhookSignature, toFormBody } = await import("../src/services/stripe.js");
+const { amountToPay } = await import("../src/utils/payments.js");
+
+test("Cloudinary signature matches the example in Cloudinary's documentation", () => {
+  const params = { timestamp: 1315060510, public_id: "sample_image", eager: "w_400,h_300,c_pad|w_260,h_200,c_crop" };
+  assert.equal(signParams(params, "abcd"), "bfd09f95f331f558cbd1320e67aa8d488770583e");
+});
+
+test("Stripe form body uses nested field names and URL-encodes values", () => {
+  const body = toFormBody({ mode: "payment", line_items: [{ quantity: 1, price_data: { unit_amount: 2500 } }], success_url: "https://x/?a={ID}" });
+  assert.equal(
+    decodeURIComponent(body),
+    "mode=payment&line_items[0][quantity]=1&line_items[0][price_data][unit_amount]=2500&success_url=https://x/?a={ID}",
+  );
+  assert.match(body, /success_url=https%3A%2F%2Fx%2F%3Fa%3D%7BID%7D/);
+});
+
+test("Stripe webhook signature: valid, tampered, wrong secret, and too old", () => {
+  const secret = "whsec_test";
+  const body = '{"type":"checkout.session.completed"}';
+  const now = Date.now();
+  const t = Math.floor(now / 1000);
+  const sign = (payload, key = secret, time = t) =>
+    `t=${time},v1=${createHmac("sha256", key).update(`${time}.${payload}`).digest("hex")}`;
+
+  assert.equal(isValidWebhookSignature(body, sign(body), secret, 300, now), true);
+  assert.equal(isValidWebhookSignature(body.replace("completed", "expired"), sign(body), secret, 300, now), false);
+  assert.equal(isValidWebhookSignature(body, sign(body, "whsec_other"), secret, 300, now), false);
+  assert.equal(isValidWebhookSignature(body, sign(body, secret, t - 600), secret, 300, now), false);
+  assert.equal(isValidWebhookSignature(body, "garbage", secret, 300, now), false);
+  assert.equal(isValidWebhookSignature(body, undefined, secret, 300, now), false);
+});
+
+test("only items for sale and won auctions can be paid, and never by the seller", () => {
+  const sale = { user_id: "seller", listing_type: "sale", status: "active", price: "25.00" };
+  assert.equal(amountToPay(sale, "buyer"), 25);
+  assert.throws(() => amountToPay(sale, "seller"), /your own/);
+  assert.throws(() => amountToPay({ ...sale, status: "sold" }, "buyer"), /no longer available/);
+  assert.throws(() => amountToPay({ ...sale, price: "0" }, "buyer"), /no price/);
+
+  const auction = { user_id: "seller", listing_type: "auction", status: "reserved", leading_bidder_id: "winner", highest_bid: "40.50" };
+  assert.equal(amountToPay(auction, "winner"), 40.5);
+  assert.throws(() => amountToPay(auction, "someone-else"), /Only the winner/);
+  assert.throws(() => amountToPay({ ...auction, status: "active" }, "winner"), /Only the winner/);
+
+  for (const type of ["trade", "giveaway", "buy_request"]) {
+    assert.throws(() => amountToPay({ ...sale, listing_type: type }, "buyer"), /Only items for sale/);
+  }
+});
