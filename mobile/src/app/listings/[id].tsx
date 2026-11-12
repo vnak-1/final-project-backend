@@ -1,5 +1,6 @@
 // The item page (GET /api/listings/:id): photos, status and type, big price, the heart, auction
 // details, facts, description and the seller. Works signed out; the heart asks to sign in.
+// No heart on your own item: the API refuses to save it, and the website hides it too.
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -13,11 +14,13 @@ import { PhotoPager } from "@/components/PhotoPager";
 import { SaveButton } from "@/components/SaveButton";
 import { SellerCard } from "@/components/SellerCard";
 import { apiFetch, errorMessage } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { colors } from "@/theme";
 import type { ListingWithSeller } from "@/types";
 
 export default function ListingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
   const [listing, setListing] = useState<ListingWithSeller | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,6 +33,7 @@ export default function ListingScreen() {
   if (error) return <View style={styles.padded}><Notice text={error} /></View>;
   if (!listing) return <ActivityIndicator color={colors.pageText} style={styles.padded} />;
   const wanted = listing.listingType === "buy_request";
+  const mine = user?.id === listing.sellerId;
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
@@ -37,7 +41,7 @@ export default function ListingScreen() {
       <View style={styles.body}>
         <View style={styles.headingRow}>
           <View style={styles.heading}><ListingHeading listing={listing} /></View>
-          <SaveButton listingId={listing.id} />
+          {mine ? null : <SaveButton listingId={listing.id} />}
         </View>
         {listing.auction ? <AuctionPanel auction={listing.auction} startingBid={listing.price} /> : null}
         <ListingFacts listing={listing} />
