@@ -52,3 +52,12 @@ export function photoUrl(url: string): string {
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
+
+/** A chat time: "14:05" for today, else "12 Nov" (the phone's own time zone). */
+export function formatChatTime(iso: string): string {
+  const date = new Date(iso);
+  if (date.toDateString() === new Date().toDateString()) {
+    return date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  }
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
