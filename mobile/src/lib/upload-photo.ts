@@ -4,8 +4,11 @@ import { fetch } from "expo/fetch";
 
 import { API_URL, ApiError } from "@/lib/api";
 
-/** Same limit as the website's form (MAX_PHOTO_MB): the API takes 5 MB, Vercel refuses over 4.5 MB. */
-export const MAX_PHOTO_MB = 4;
+/**
+ * The API's own limit (MAX_SIZE "5mb" in backend/src/routes/uploads.js, counted as 5 x 1024 x 1024 bytes).
+ * The website uses 4 MB because Vercel sits in its path; the phone posts straight to the API.
+ */
+export const MAX_PHOTO_MB = 5;
 
 /** Base64 text to bytes. atob is built into the app's JavaScript engine (Hermes). */
 function toBytes(base64: string): Uint8Array {

@@ -56,7 +56,7 @@ is public); state a plan before multi-file changes; explain every change so the 
   iOS; no SSE package). The stream is open only while the chat screen has focus AND the app is active
   (`AppState`): an open stream counts as watching and turns off that thread's email/Telegram alerts. On an
   error it waits 3 s, reopens (5 tries) and reloads the thread. Messages merge by id.
-- **Sell photos:** picked with `expo-image-picker` as base64 JPEG (quality 0.7), checked against 4 MB,
+- **Sell photos:** picked with `expo-image-picker` as base64 JPEG (quality 0.6), checked against the API's 5 MB,
   uploaded one by one to `POST /api/uploads` with `expo/fetch`; only the URLs are posted.
 - **Run:** API first, then in `mobile/`: `npm install`, `cp .env.example .env`, `npx expo start`, press `i`
   (iPhone simulator; Expo Go installs itself). Real phone: Expo Go on the same Wi-Fi, with

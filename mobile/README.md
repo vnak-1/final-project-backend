@@ -40,7 +40,8 @@ There are no payments, bids, offers or meetups in the app. Those stay on the web
 
 ## Photos
 
-- Each photo uploads as soon as you pick it (`POST /api/uploads`, JPEG at quality 0.7, at most 4 MB).
+- Each photo uploads as soon as you pick it (`POST /api/uploads`, JPEG at quality 0.6, at most 5 MB:
+  the API's own limit; the website uses 4 MB only because Vercel sits in its path).
   Only the addresses are sent with the listing.
 - Seed photos such as `/listings/calculus-book.jpg` are files of the website, so the app cannot load them.
   It shows the category icon instead (`canShowPhoto` in `src/lib/format.ts`).

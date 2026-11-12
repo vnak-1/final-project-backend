@@ -9,8 +9,8 @@ import { uploadPhoto } from "@/lib/upload-photo";
 
 export const MAX_PHOTOS = 6;
 
-// JPEG at quality 0.7 keeps a phone photo well under the 4 MB limit.
-const OPTIONS: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 0.7, base64: true };
+// JPEG at quality 0.6 keeps most phone photos under the API's 5 MB limit (upload-photo.ts refuses bigger ones).
+const OPTIONS: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 0.6, base64: true };
 
 export function useSellPhotos() {
   const { token } = useAuth();
