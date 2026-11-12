@@ -21,6 +21,11 @@ const TYPES: Record<ListingType, string> = {
 };
 const STATUSES: Record<ListingStatus, string> = { active: "Available", reserved: "Reserved", sold: "Sold", traded: "Traded" };
 
+export const CONDITION_OPTIONS = Object.entries(CONDITIONS).map(([value, label]) => ({
+  value: value as ListingCondition,
+  label,
+}));
+
 export const conditionLabel = (value: ListingCondition) => CONDITIONS[value] ?? value;
 export const listingTypeLabel = (value: ListingType) => TYPES[value] ?? value;
 export const statusLabel = (value: ListingStatus) => STATUSES[value] ?? value;
