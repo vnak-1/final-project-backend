@@ -41,6 +41,24 @@ is public); state a plan before multi-file changes; explain every change so the 
     (database snake_case → API camelCase, matching the frontend types).
   - The full API table is in `backend/README.md`. Keep it updated when routes change.
 
+## Mobile app (12 Nov)
+
+- **What:** an iPhone app in `mobile/`, Expo SDK 58 (React Native + TypeScript, Expo Router). Phase 1:
+  log in, sign up with the 6-digit code, browse and search, the item page (auction read only), saved
+  items, and an Account tab. No payments. Phase 2 (after review): inbox and chat, sell with a photo
+  (`expo-image-picker`), own profile.
+- **How it talks to the API:** directly, with `Authorization: Bearer` (`src/lib/api.ts`), on
+  `EXPO_PUBLIC_API_URL` (default `http://localhost:4000`). It needed no change in `frontend/` or `backend/`.
+  Types, labels and colours are copied from `frontend/` (Metro cannot import outside `mobile/`).
+- **Run:** API first, then in `mobile/`: `npm install`, `cp .env.example .env`, `npx expo start`, press `i`
+  (iPhone simulator; Expo Go installs itself). Real phone: Expo Go on the same Wi-Fi, with
+  `EXPO_PUBLIC_API_URL=http://<laptop-ip>:4000`. See `mobile/README.md`.
+- **Rules:** the token lives only in `expo-secure-store` (key `uniswap_token`). `mobile/.env` holds only
+  `EXPO_PUBLIC_API_URL` (built into the app; git-ignored). Packages: the Expo starter and
+  `expo-secure-store` (phase 2 adds `expo-image-picker`), always with `npx expo install`. Gate:
+  `npx tsc --noEmit` in `mobile/` (never `npx expo lint`, it installs ESLint). Light mode, iPhone
+  simulator only (no Android SDK on the team laptop).
+
 ## Commands
 
 ```bash

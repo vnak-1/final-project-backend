@@ -174,6 +174,8 @@ cd frontend && npm install && npm run dev
 For the full demo data, also run `npm run db:samples` and then `npm run db:demo-deals` in `backend/`
 (60 more items, and 9 finished deals for chanrithorn's profile stats).
 
+The iPhone app is in `mobile/`; see [mobile/README.md](mobile/README.md) to run it.
+
 The web app calls the API from the Next.js server, at `http://localhost:4000` by default. To use a
 different address, set `API_URL` in `frontend/.env.local`.
 

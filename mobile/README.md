@@ -1,56 +1,58 @@
-# Welcome to your Expo app 👋
+# UniSwap mobile app
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The UniSwap phone app, built with Expo (React Native + TypeScript, SDK 58).
+It talks to the same Express API (`backend/`) as the website. It sends the login token as
+`Authorization: Bearer <token>`.
 
-## Get started
+Phase 1 (12 Nov 2026) has:
 
-1. Install dependencies
+- Log in, and sign up with the 6-digit code from the email (AUPP emails only).
+- Browse with search and category chips, and pull to refresh.
+- The item page: photos you can swipe, price, status, facts, seller with stars, and auction details (read only).
+- Saved items: the heart on the item page and the Saved tab.
+- Account: name, email and Sign out.
 
-   ```bash
-   npm install
-   ```
+There are no payments in the app. Bids, messages and selling are on the website (messages and selling come in phase 2).
 
-2. Start the app
+## Run it
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+You need the API running first (`npm run dev` in `backend/`, on http://localhost:4000).
 
 ```bash
-npm run reset-project
+cd mobile
+npm install
+cp .env.example .env
+npx expo start
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+Then press `i` to open the app in the iPhone simulator (Xcode must be installed).
+The first time, Expo installs the Expo Go app in the simulator.
 
-### Other setup steps
+### On a real phone
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+1. Install Expo Go from the App Store.
+2. Put the phone and the laptop on the same Wi-Fi.
+3. In `mobile/.env`, set `EXPO_PUBLIC_API_URL=http://<laptop-ip>:4000` (find the IP with `ipconfig getifaddr en0`).
+4. Run `npx expo start` again and scan the QR code with the phone camera.
 
-## Learn more
+## Where things are
 
-To learn more about developing your project with Expo, look at the following resources:
+- `src/app/`: one file is one screen (Expo Router, like the Next.js App Router).
+  - `(tabs)/`: the three tabs, Browse (`index.tsx`), Saved and Account.
+  - `listings/[id].tsx`: the item page.
+  - `login.tsx`, `register.tsx`, `verify.tsx`: log in, sign up, and the 6-digit code.
+- `src/lib/api.ts`: one `fetch` wrapper (API address, JSON, Bearer token, error message from `{ error }`).
+- `src/lib/auth.tsx`: who is signed in. The token is kept in `expo-secure-store` only.
+- `src/lib/format.ts`, `src/types.ts`, `src/theme.ts`: labels, prices, types and colours, copied from `frontend/`.
+- `src/components/`: small parts (cards, search box, heart, photo pager, seller card...).
+- `src/hooks/use-listings.ts`: loads the Browse list.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Rules
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- The login token goes only in `expo-secure-store` (key `uniswap_token`). Never in AsyncStorage or a file.
+- `EXPO_PUBLIC_*` values are built into the app, so anyone can read them. `mobile/.env` holds only
+  `EXPO_PUBLIC_API_URL`. Never put a secret there. `.env` is git-ignored.
+- Add packages only after the team agrees, and only with `npx expo install <name>`.
+- Check the code with `npx tsc --noEmit`. Do not run `npx expo lint` (it would install ESLint).
+- One component per file, about 80 lines at most. Each file starts with a short comment.
+- No Android SDK on the team laptop: test in the iPhone simulator.
