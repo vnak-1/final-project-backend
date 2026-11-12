@@ -25,7 +25,9 @@ export default function LoginScreen() {
     setBusy(true);
     try {
       await signIn(email.trim(), password);
-      router.dismissTo("/");
+      // Back to where the student was (e.g. the item whose heart they tapped), else to Browse.
+      if (router.canGoBack()) router.back();
+      else router.replace("/");
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         router.push({ pathname: "/verify", params: { email: email.trim() } });

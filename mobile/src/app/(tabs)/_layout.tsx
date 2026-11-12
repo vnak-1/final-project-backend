@@ -5,7 +5,7 @@ import { colors } from "@/theme";
 
 export default function TabsLayout() {
   return (
-    <NativeTabs tintColor={colors.primary} backgroundColor={colors.page}>
+    <NativeTabs tintColor={colors.primary}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Browse</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="square.grid.2x2" />
