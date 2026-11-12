@@ -2,20 +2,17 @@
 // ("You: ..." when I sent it), its time, and a dot while there are unread messages. Tap to open the chat.
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { useUserName } from "@/hooks/use-user-name";
-import { formatChatTime, photoUrl } from "@/lib/format";
+import { canShowPhoto, formatChatTime, photoUrl } from "@/lib/format";
 import { colors, radius } from "@/theme";
 import type { Conversation } from "@/types";
 
 export function ConversationRow({ conversation: row }: { conversation: Conversation }) {
   const partnerName = useUserName(row.partnerId);
   const unread = row.unreadCount > 0;
-  // Seed photos like "/listings/x.jpg" live on the website, not the API: show the category icon instead.
-  const [photoFailed, setPhotoFailed] = useState(false);
 
   return (
     <Pressable
@@ -23,9 +20,8 @@ export function ConversationRow({ conversation: row }: { conversation: Conversat
       onPress={() => router.push(`/chat/${row.listingId}/${row.partnerId}`)}
       accessibilityLabel={`Chat with ${partnerName} about ${row.listingTitle}`}
     >
-      {row.listingImageUrl && !photoFailed ? (
-        <Image source={{ uri: photoUrl(row.listingImageUrl) }} style={styles.photo} contentFit="cover"
-          onError={() => setPhotoFailed(true)} />
+      {row.listingImageUrl && canShowPhoto(row.listingImageUrl) ? (
+        <Image source={{ uri: photoUrl(row.listingImageUrl) }} style={styles.photo} contentFit="cover" />
       ) : (
         <View style={[styles.photo, styles.iconBox]}>
           <CategoryIcon category={row.listingCategory} size={26} color={colors.pageMuted} />

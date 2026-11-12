@@ -43,6 +43,14 @@ export function formatListingPrice(listing: Pick<Listing, "listingType" | "price
   return formatPrice(listing.price);
 }
 
+/**
+ * False for the seed photos that are files of the website ("/listings/calculus-book.jpg"): the app
+ * talks only to the API, so it cannot load them. API uploads ("/uploads/...") and full URLs are fine.
+ */
+export function canShowPhoto(url: string): boolean {
+  return !url.startsWith("/") || url.startsWith("/uploads/");
+}
+
 /** A photo's full address. Photos uploaded to our own API come back as "/uploads/..." paths. */
 export function photoUrl(url: string): string {
   return url.startsWith("/") ? `${API_URL}${url}` : url;

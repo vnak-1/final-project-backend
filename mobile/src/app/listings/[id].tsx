@@ -7,6 +7,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-nat
 import { AuctionPanel } from "@/components/AuctionPanel";
 import { ListingFacts } from "@/components/ListingFacts";
 import { ListingHeading } from "@/components/ListingHeading";
+import { MessageSellerButton } from "@/components/MessageSellerButton";
 import { Notice } from "@/components/Notice";
 import { PhotoPager } from "@/components/PhotoPager";
 import { SaveButton } from "@/components/SaveButton";
@@ -42,7 +43,7 @@ export default function ListingScreen() {
         <ListingFacts listing={listing} />
         {listing.description ? <Text style={styles.description}>{listing.description}</Text> : null}
         <SellerCard seller={listing.seller} wanted={wanted} />
-        {/* Phase 2: the "Message seller" button goes here, under the seller card. */}
+        <MessageSellerButton listing={listing} />
       </View>
     </ScrollView>
   );

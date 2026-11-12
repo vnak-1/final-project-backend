@@ -1,15 +1,16 @@
 // The item page's photos: swipe left and right, one photo per screen width, with dots underneath.
-// No photos (or a Wanted post): the category icon instead.
+// No photos the app can load (or a Wanted post): the category icon instead.
 import { Image } from "expo-image";
 import { useState } from "react";
 import { ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 
 import { CategoryIcon } from "@/components/CategoryIcon";
-import { photoUrl } from "@/lib/format";
+import { canShowPhoto, photoUrl } from "@/lib/format";
 import { colors } from "@/theme";
 import type { ListingCategory } from "@/types";
 
-export function PhotoPager({ urls, category }: { urls: string[]; category: ListingCategory }) {
+export function PhotoPager({ urls: allUrls, category }: { urls: string[]; category: ListingCategory }) {
+  const urls = allUrls.filter(canShowPhoto);
   const { width } = useWindowDimensions();
   const [page, setPage] = useState(0);
   const height = width * 0.85;

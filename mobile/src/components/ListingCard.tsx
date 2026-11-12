@@ -5,13 +5,13 @@ import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CategoryIcon } from "@/components/CategoryIcon";
-import { conditionLabel, formatListingPrice, photoUrl } from "@/lib/format";
+import { canShowPhoto, conditionLabel, formatListingPrice, photoUrl } from "@/lib/format";
 import { colors, radius } from "@/theme";
 import type { ListingWithSeller } from "@/types";
 
 export function ListingCard({ listing, width }: { listing: ListingWithSeller; width: number }) {
   const wanted = listing.listingType === "buy_request";
-  const cover = listing.imageUrls[0];
+  const cover = listing.imageUrls.find(canShowPhoto);
   const textColor = wanted ? colors.pageText : colors.cardText;
 
   return (

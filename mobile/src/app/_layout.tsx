@@ -20,6 +20,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Browse" }} />
         <Stack.Screen name="listings/[id]" options={{ title: "Item" }} />
+        <Stack.Screen name="chat/[listingId]/[userId]" options={{ title: "Chat" }} />
         <Stack.Screen name="login" options={{ title: "Log in" }} />
         <Stack.Screen name="register" options={{ title: "Sign up" }} />
         <Stack.Screen name="verify" options={{ title: "Enter your code" }} />

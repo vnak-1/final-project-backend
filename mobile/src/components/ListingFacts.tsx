@@ -1,4 +1,4 @@
-// A small table of facts on the item page: condition, category, when it was posted, and saves.
+// A small table of facts on the item page: condition, category, when it was posted, and saves (when there are any).
 import { StyleSheet, Text, View } from "react-native";
 
 import { categoryLabel, conditionLabel, formatDate } from "@/lib/format";
@@ -10,8 +10,11 @@ export function ListingFacts({ listing }: { listing: Listing }) {
     ["Condition", conditionLabel(listing.condition)],
     ["Category", categoryLabel(listing.category)],
     ["Posted", formatDate(listing.createdAt)],
-    ["Saved by", `${listing.saveCount} ${listing.saveCount === 1 ? "student" : "students"}`],
   ];
+  // Like the website: no "Saved by" line until someone has saved it.
+  if (listing.saveCount > 0) {
+    facts.push(["Saved by", `${listing.saveCount} ${listing.saveCount === 1 ? "student" : "students"}`]);
+  }
 
   return (
     <View style={styles.box}>
